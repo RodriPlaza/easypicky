@@ -1,0 +1,259 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  CLUB_ADMIN
+  SUPER_ADMIN
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  CANCELLED
+}
+
+enum EventType {
+  CLASS
+  TOURNAMENT
+  MEETUP
+}
+
+enum EventVisibility {
+  OPEN
+  MEMBERS_ONLY
+  PRIVATE
+}
+
+enum EventStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  UNPAID
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  phone         String?
+  avatar        String?
+  city          String?
+  duprId        String?  @unique // Para conectar con DUPR en el futuro
+  duprRating    Float?   // Rating de DUPR
+  role          UserRole @default(USER)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relaciones
+  clubMemberships ClubMembership[]
+  eventParticipations EventParticipant[]
+  matchParticipations MatchParticipant[]
+  payments        Payment[]
+  createdClubs    Club[] @relation("ClubCreator")
+  
+  @@map("users")
+}
+
+model Club {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  address       String
+  city          String
+  phone         String?
+  email         String?
+  website       String?
+  logo          String?
+  
+  // Configuración de pagos
+  stripeAccountId String? // ID de cuenta de Stripe Connect
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relaciones
+  creator       User     @relation("ClubCreator", fields: [creatorId], references: [id])
+  creatorId     String
+  
+  memberships   ClubMembership[]
+  events        Event[]
+  courts        Court[]
+  subscription  ClubSubscription?
+  
+  @@map("clubs")
+}
+
+model ClubMembership {
+  id        String           @id @default(cuid())
+  status    MembershipStatus @default(PENDING)
+  joinedAt  DateTime         @default(now())
+  expiresAt DateTime?
+  
+  // Relaciones
+  user      User   @relation(fields: [userId], references: [id])
+  userId    String
+  club      Club   @relation(fields: [clubId], references: [id])
+  clubId    String
+  
+  @@unique([userId, clubId])
+  @@map("club_memberships")
+}
+
+model ClubSubscription {
+  id                String             @id @default(cuid())
+  status            SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?         @unique
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relaciones
+  club              Club     @relation(fields: [clubId], references: [id])
+  clubId            String   @unique
+  
+  @@map("club_subscriptions")
+}
+
+model Court {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+  
+  // Relaciones
+  club        Club   @relation(fields: [clubId], references: [id])
+  clubId      String
+  
+  events      Event[]
+  matches     Match[]
+  
+  @@map("courts")
+}
+
+model Event {
+  id            String          @id @default(cuid())
+  title         String
+  description   String?
+  type          EventType
+  visibility    EventVisibility @default(MEMBERS_ONLY)
+  status        EventStatus     @default(SCHEDULED)
+  
+  startDateTime DateTime
+  endDateTime   DateTime
+  maxParticipants Int?
+  price         Float?          // Precio en euros/cents
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relaciones
+  club          Club    @relation(fields: [clubId], references: [id])
+  clubId        String
+  court         Court?  @relation(fields: [courtId], references: [id])
+  courtId       String?
+  
+  participants  EventParticipant[]
+  matches       Match[]
+  payments      Payment[]
+  
+  @@map("events")
+}
+
+model EventParticipant {
+  id            String   @id @default(cuid())
+  registeredAt  DateTime @default(now())
+  checkedIn     Boolean  @default(false)
+  checkedInAt   DateTime?
+  
+  // Relaciones
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  event         Event    @relation(fields: [eventId], references: [id])
+  eventId       String
+  
+  @@unique([userId, eventId])
+  @@map("event_participants")
+}
+
+model Match {
+  id            String      @id @default(cuid())
+  startTime     DateTime?
+  endTime       DateTime?
+  score         String?     // Formato: "21-19,21-17" o similar
+  completed     Boolean     @default(false)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  // Relaciones
+  event         Event?      @relation(fields: [eventId], references: [id])
+  eventId       String?
+  court         Court       @relation(fields: [courtId], references: [id])
+  courtId       String
+  
+  participants  MatchParticipant[]
+  
+  @@map("matches")
+}
+
+model MatchParticipant {
+  id        String  @id @default(cuid())
+  team      Int     // 1 o 2 para identificar equipos
+  isWinner  Boolean @default(false)
+  
+  // Relaciones
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String
+  match     Match   @relation(fields: [matchId], references: [id])
+  matchId   String
+  
+  @@unique([userId, matchId])
+  @@map("match_participants")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  amount            Float         // En cents
+  currency          String        @default("eur")
+  status            PaymentStatus @default(PENDING)
+  stripePaymentIntentId String?   @unique
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relaciones
+  user              User          @relation(fields: [userId], references: [id])
+  userId            String
+  event             Event?        @relation(fields: [eventId], references: [id])
+  eventId           String?
+  
+  @@map("payments")
+}
