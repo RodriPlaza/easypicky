@@ -12,7 +12,6 @@ datasource db {
 
 enum UserRole {
   USER
-  CLUB_ADMIN
   SUPER_ADMIN
 }
 
@@ -66,11 +65,18 @@ model User {
   duprId        String?  @unique // Para conectar con DUPR en el futuro
   duprRating    Float?   // Rating de DUPR
   role          UserRole @default(USER)
+  password      String?  // Para auth con credentials
+  emailVerified DateTime?
+  image         String?
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
-  // Relaciones
+  // Relaciones NextAuth
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Relaciones de la app
   clubMemberships ClubMembership[]
   eventParticipations EventParticipant[]
   matchParticipations MatchParticipant[]
@@ -78,6 +84,46 @@ model User {
   createdClubs    Club[] @relation("ClubCreator")
   
   @@map("users")
+}
+
+// Modelos necesarios para NextAuth
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model Club {
@@ -118,7 +164,7 @@ model ClubMembership {
   // Relaciones
   user      User   @relation(fields: [userId], references: [id])
   userId    String
-  club      Club   @relation(fields: [clubId], references: [id])
+  club      Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
   clubId    String
   
   @@unique([userId, clubId])
@@ -136,7 +182,7 @@ model ClubSubscription {
   updatedAt         DateTime @updatedAt
   
   // Relaciones
-  club              Club     @relation(fields: [clubId], references: [id])
+  club              Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   clubId            String   @unique
   
   @@map("club_subscriptions")
@@ -149,7 +195,7 @@ model Court {
   isActive    Boolean @default(true)
   
   // Relaciones
-  club        Club   @relation(fields: [clubId], references: [id])
+  club        Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
   clubId      String
   
   events      Event[]
@@ -175,7 +221,7 @@ model Event {
   updatedAt     DateTime @updatedAt
   
   // Relaciones
-  club          Club    @relation(fields: [clubId], references: [id])
+  club          Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
   clubId        String
   court         Court?  @relation(fields: [courtId], references: [id])
   courtId       String?
