@@ -242,7 +242,7 @@ model EventParticipant {
   // Relaciones
   user          User     @relation(fields: [userId], references: [id])
   userId        String
-  event         Event    @relation(fields: [eventId], references: [id])
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   eventId       String
   
   @@unique([userId, eventId])
