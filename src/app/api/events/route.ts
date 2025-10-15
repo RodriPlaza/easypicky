@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { verifyToken } from "@/lib/auth-middleware";
 import { EventType, EventVisibility, EventStatus } from "@prisma/client";
+import { withAuth } from "@/lib/auth-middleware";
+import { AuthenticatedUser } from "@/lib/auth-middleware";
 
 const createEventSchema = z
   .object({
@@ -53,112 +54,109 @@ const listEventsSchema = z.object({
 });
 
 // POST - Crear evento
-export async function POST(request: NextRequest) {
-  // Verificar autenticación manualmente
-  const user = await verifyToken(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const POST = withAuth(
+  async (request: NextRequest, user: AuthenticatedUser) => {
+    // Verificar autenticación manualmente
+    try {
+      const body = await request.json();
 
-  try {
-    const body = await request.json();
+      // Validar datos de entrada
+      const validatedData = createEventSchema.parse(body);
 
-    // Validar datos de entrada
-    const validatedData = createEventSchema.parse(body);
+      // Verificar que el club existe
+      const club = await prisma.club.findUnique({
+        where: { id: validatedData.clubId },
+      });
 
-    // Verificar que el club existe
-    const club = await prisma.club.findUnique({
-      where: { id: validatedData.clubId },
-    });
+      if (!club) {
+        return NextResponse.json({ error: "Club not found" }, { status: 404 });
+      }
 
-    if (!club) {
-      return NextResponse.json({ error: "Club not found" }, { status: 404 });
-    }
+      // Verificar permisos: creador del club, miembro activo o SUPER_ADMIN
+      const isCreator = club.creatorId === user.userId;
+      const isSuperAdmin = user.role === "SUPER_ADMIN";
 
-    // Verificar permisos: creador del club, miembro activo o SUPER_ADMIN
-    const isCreator = club.creatorId === user.userId;
-    const isSuperAdmin = user.role === "SUPER_ADMIN";
+      if (!isCreator && !isSuperAdmin) {
+        return NextResponse.json(
+          {
+            error:
+              "Forbidden - Only club creator or super admin can create events",
+          },
+          { status: 403 }
+        );
+      }
 
-    if (!isCreator && !isSuperAdmin) {
-      return NextResponse.json(
-        {
-          error:
-            "Forbidden - Only club creator or super admin can create events",
+      // Verificar que la pista existe (si se especifica)
+      if (validatedData.courtId) {
+        const court = await prisma.court.findFirst({
+          where: {
+            id: validatedData.courtId,
+            clubId: validatedData.clubId,
+            isActive: true,
+          },
+        });
+
+        if (!court) {
+          return NextResponse.json(
+            { error: "Court not found or not active in this club" },
+            { status: 404 }
+          );
+        }
+      }
+
+      // Crear el evento
+      const event = await prisma.event.create({
+        data: {
+          ...validatedData,
+          startDateTime: new Date(validatedData.startDateTime),
+          endDateTime: new Date(validatedData.endDateTime),
+          visibility: validatedData.visibility || "MEMBERS_ONLY",
         },
-        { status: 403 }
-      );
-    }
-
-    // Verificar que la pista existe (si se especifica)
-    if (validatedData.courtId) {
-      const court = await prisma.court.findFirst({
-        where: {
-          id: validatedData.courtId,
-          clubId: validatedData.clubId,
-          isActive: true,
+        include: {
+          club: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+            },
+          },
+          court: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              participants: true,
+            },
+          },
         },
       });
 
-      if (!court) {
+      return NextResponse.json(
+        {
+          message: "Event created successfully",
+          event,
+        },
+        { status: 201 }
+      );
+    } catch (error) {
+      if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: "Court not found or not active in this club" },
-          { status: 404 }
+          { error: "Validation error", details: error },
+          { status: 400 }
         );
       }
-    }
 
-    // Crear el evento
-    const event = await prisma.event.create({
-      data: {
-        ...validatedData,
-        startDateTime: new Date(validatedData.startDateTime),
-        endDateTime: new Date(validatedData.endDateTime),
-        visibility: validatedData.visibility || "MEMBERS_ONLY",
-      },
-      include: {
-        club: {
-          select: {
-            id: true,
-            name: true,
-            city: true,
-          },
-        },
-        court: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        _count: {
-          select: {
-            participants: true,
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(
-      {
-        message: "Event created successfully",
-        event,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+      console.error("Create event error:", error);
       return NextResponse.json(
-        { error: "Validation error", details: error },
-        { status: 400 }
+        { error: "Internal server error" },
+        { status: 500 }
       );
     }
-
-    console.error("Create event error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
   }
-}
+);
 
 // GET - Listar eventos
 export async function GET(request: NextRequest) {

@@ -48,32 +48,34 @@ export async function verifyToken(
 }
 
 // Middleware para rutas protegidas
-export function withAuth(
+export function withAuth<T = any>(
   handler: (
     request: NextRequest,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    context?: T
   ) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest) => {
+  return async (request: NextRequest, context?: T) => {
     const user = await verifyToken(request);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return handler(request, user);
+    return handler(request, user, context);
   };
 }
 
 // Middleware para rutas que requieren rol específico
-export function withRole(
+export function withRole<T = any>(
   roles: UserRole[],
   handler: (
     request: NextRequest,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    context?: T
   ) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest) => {
+  return async (request: NextRequest, context?: T) => {
     const user = await verifyToken(request);
 
     if (!user) {
@@ -87,6 +89,6 @@ export function withRole(
       );
     }
 
-    return handler(request, user);
+    return handler(request, user, context);
   };
 }
