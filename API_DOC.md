@@ -1702,6 +1702,331 @@ Authorization: Bearer <jwt_token>
 
 ---
 
+---
+
+## 🏟️ Gestión de Pistas (Courts)
+
+### Crear Pista
+
+**POST** `/clubs/:id/courts`
+
+Crea una nueva pista en un club. Solo el creador del club o SUPER_ADMIN pueden crear pistas.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "name": "string (min: 1, max: 100 chars)", // Requerido
+  "description": "string", // Opcional
+  "isActive": "boolean" // Opcional (default: true)
+}
+```
+
+**Response 201 - Success:**
+
+```json
+{
+  "message": "Court created successfully",
+  "court": {
+    "id": "crt1234567890",
+    "name": "Pista Central",
+    "description": "Pista principal del club con iluminación LED",
+    "isActive": true,
+    "clubId": "clp1234567890",
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Pickleball Madrid",
+      "city": "Madrid"
+    },
+    "_count": {
+      "events": 0,
+      "matches": 0
+    }
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only club creator or super admin can create courts"
+}
+```
+
+**Response 409 - Conflict:**
+
+```json
+{
+  "error": "A court with this name already exists in this club"
+}
+```
+
+---
+
+### Listar Pistas del Club
+
+**GET** `/clubs/:id/courts`
+
+Obtiene una lista paginada de las pistas de un club. Acceso público.
+
+**Query Parameters:**
+
+- `page`: number (default: 1) - Página a mostrar
+- `limit`: number (default: 20, max: 100) - Pistas por página
+- `isActive`: boolean - Filtrar por estado activo/inactivo
+
+**Response 200 - Success:**
+
+```json
+{
+  "club": {
+    "id": "clp1234567890",
+    "name": "Club Pickleball Madrid",
+    "city": "Madrid"
+  },
+  "courts": [
+    {
+      "id": "crt1234567890",
+      "name": "Pista Central",
+      "description": "Pista principal del club con iluminación LED",
+      "isActive": true,
+      "clubId": "clp1234567890",
+      "_count": {
+        "events": 15,
+        "matches": 42
+      }
+    },
+    {
+      "id": "crt0987654321",
+      "name": "Pista 2",
+      "description": "Pista secundaria",
+      "isActive": true,
+      "clubId": "clp1234567890",
+      "_count": {
+        "events": 8,
+        "matches": 23
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "totalCount": 4,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Club not found"
+}
+```
+
+---
+
+### Obtener Pista Específica
+
+**GET** `/clubs/:id/courts/:courtId`
+
+Obtiene los detalles de una pista específica. Acceso público.
+
+**Response 200 - Success:**
+
+```json
+{
+  "court": {
+    "id": "crt1234567890",
+    "name": "Pista Central",
+    "description": "Pista principal del club con iluminación LED",
+    "isActive": true,
+    "clubId": "clp1234567890",
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Pickleball Madrid",
+      "city": "Madrid",
+      "address": "Calle Gran Vía 1, Madrid"
+    },
+    "_count": {
+      "events": 15,
+      "matches": 42
+    }
+  }
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Court not found in this club"
+}
+```
+
+---
+
+### Actualizar Pista
+
+**PUT** `/clubs/:id/courts/:courtId`
+
+Actualiza la información de una pista. Solo el creador del club o SUPER_ADMIN pueden actualizar pistas.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "name": "string (min: 1, max: 100 chars)", // Opcional
+  "description": "string", // Opcional
+  "isActive": "boolean" // Opcional
+}
+```
+
+**Notas importantes:**
+
+- Si se desactiva una pista (`isActive: false`), se verifica que no tenga eventos futuros
+- No se puede cambiar el nombre a uno que ya existe en el mismo club
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Court updated successfully",
+  "court": {
+    "id": "crt1234567890",
+    "name": "Pista Central - Renovada",
+    "description": "Pista principal renovada con nueva superficie",
+    "isActive": true,
+    "clubId": "clp1234567890",
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Pickleball Madrid",
+      "city": "Madrid"
+    },
+    "_count": {
+      "events": 15,
+      "matches": 42
+    }
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only club creator or super admin can update courts"
+}
+```
+
+**Response 409 - Conflict (nombre duplicado):**
+
+```json
+{
+  "error": "A court with this name already exists in this club"
+}
+```
+
+**Response 409 - Conflict (eventos futuros):**
+
+```json
+{
+  "error": "Cannot deactivate court with scheduled or ongoing events",
+  "details": {
+    "futureEvents": 5,
+    "suggestion": "Please cancel or reassign events before deactivating the court"
+  }
+}
+```
+
+---
+
+### Eliminar Pista
+
+**DELETE** `/clubs/:id/courts/:courtId`
+
+Elimina una pista del club. Solo el creador del club o SUPER_ADMIN pueden eliminar pistas.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Restricciones:**
+
+- No se puede eliminar una pista con eventos futuros (scheduled u ongoing)
+- No se puede eliminar una pista con partidos sin completar
+- Se recomienda desactivar (`isActive: false`) en lugar de eliminar cuando hay historial
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Court deleted successfully",
+  "deletedCourt": {
+    "id": "crt1234567890",
+    "name": "Pista 2",
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Pickleball Madrid"
+    }
+  },
+  "stats": {
+    "eventsDeleted": 0,
+    "matchesDeleted": 0
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only club creator or super admin can delete courts"
+}
+```
+
+**Response 409 - Conflict (eventos futuros):**
+
+```json
+{
+  "error": "Cannot delete court with scheduled or ongoing events",
+  "details": {
+    "futureEvents": 3,
+    "suggestion": "Please cancel or reassign events before deleting the court, or deactivate it instead"
+  }
+}
+```
+
+**Response 409 - Conflict (partidos incompletos):**
+
+```json
+{
+  "error": "Cannot delete court with incomplete matches",
+  "details": {
+    "incompleteMatches": 2,
+    "suggestion": "Please complete or delete matches before deleting the court"
+  }
+}
+```
+
 ## 📊 Códigos de Estado HTTP
 
 | Código | Significado                                                           |
@@ -1888,18 +2213,19 @@ Authorization: Bearer <jwt_token>
 - `POST /events/:id/checkin` - Hacer check-in
 - `DELETE /events/:id/checkin` - Deshacer check-in
 
+### ✅ Pistas (Courts)
+
+- `POST /clubs/:id/courts` - Crear pista
+- `GET /clubs/:id/courts` - Listar pistas del club
+- `GET /clubs/:clubId/courts/:id` - Obtener pista específica
+- `PUT /clubs/:clubId/courts/:id` - Actualizar pista
+- `DELETE /clubs/:clubId/courts/:id` - Eliminar pista
+
 ---
 
 ## 🔜 Próximos Endpoints
 
 Los siguientes endpoints están planificados para implementar:
-
-### Pistas (Courts)
-
-- `POST /clubs/:id/courts` - Crear pista
-- `GET /clubs/:id/courts` - Listar pistas del club
-- `PUT /courts/:id` - Actualizar pista
-- `DELETE /courts/:id` - Eliminar pista
 
 ### Partidos (Matches)
 
@@ -1928,8 +2254,6 @@ Los siguientes endpoints están planificados para implementar:
 - `GET /users/:id/stats` - Estadísticas del usuario
 - `GET /clubs/:id/stats` - Estadísticas del club
 - `GET /events/:id/stats` - Estadísticas del evento
-
----
 
 ## 🛠️ Herramientas de Testing
 
