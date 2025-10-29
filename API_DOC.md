@@ -2027,6 +2027,636 @@ Authorization: Bearer <jwt_token>
 }
 ```
 
+---
+
+## 🎾 Gestión de Partidos (Matches)
+
+### Tipos de Partido
+
+EasyPicky separa los partidos en dos categorías:
+
+1. **Partidos Informales** (`/matches`) - Para tracking personal, pickup games, partidos entre amigos (sin pista de club)
+2. **Partidos de Club** (`/clubs/:id/matches`) - Partidos oficiales que requieren pista del club
+
+**Tipos de partido (MatchType):**
+
+- `SINGLES` - 1vs1 (máximo 2 participantes)
+- `DOUBLES` - 2vs2 (máximo 4 participantes)
+
+**Formato de Score:**
+
+- Formato: `"21-19"` o `"21-19,21-17"` (1-5 sets)
+- Regex: `/^\d{1,2}-\d{1,2}(,\d{1,2}-\d{1,2}){0,4}$/`
+- Ejemplos válidos: `"21-19"`, `"21-19,19-21,11-9"`
+
+---
+
+### Crear Partido Informal
+
+**POST** `/matches`
+
+Crea un partido informal (sin asociación a club). Cualquier usuario autenticado puede crear.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "matchType": "SINGLES" | "DOUBLES", // Requerido
+  "startTime": "string (ISO date)", // Opcional
+  "endTime": "string (ISO date)", // Opcional
+  "score": "string", // Opcional (ej: "21-19,21-17")
+  "completed": "boolean", // Opcional (default: false)
+  "courtId": "string (cuid)", // Opcional
+  "eventId": "string (cuid)", // Opcional
+  "participants": [ // Requerido, min: 1, max según matchType
+    {
+      "userId": "string (cuid)", // Requerido
+      "team": 1 | 2, // Requerido
+      "isWinner": "boolean" // Opcional (default: false)
+    }
+  ]
+}
+```
+
+**Validaciones:**
+
+- SINGLES: máximo 2 participantes
+- DOUBLES: máximo 4 participantes
+- No se permiten usuarios duplicados
+- Si hay `endTime`, debe haber `startTime` y `endTime > startTime`
+
+**Response 201 - Success:**
+
+```json
+{
+  "message": "Match created successfully",
+  "match": {
+    "id": "mtc1234567890",
+    "matchType": "DOUBLES",
+    "startTime": "2024-12-25T10:00:00.000Z",
+    "endTime": "2024-12-25T11:30:00.000Z",
+    "score": "21-19,21-17",
+    "completed": true,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "creator": {
+      "id": "usr1234567890",
+      "name": "John Doe",
+      "email": "john@example.com"
+    },
+    "participants": [
+      {
+        "id": "prt1234567890",
+        "team": 1,
+        "isWinner": true,
+        "user": {
+          "id": "usr1234567890",
+          "name": "John Doe",
+          "avatar": null,
+          "duprRating": 3.5
+        }
+      }
+    ],
+    "court": null,
+    "event": null
+  }
+}
+```
+
+**Response 400 - Bad Request:**
+
+```json
+{
+  "error": "SINGLES matches allow max 2 participants, DOUBLES allow max 4"
+}
+// o
+{
+  "error": "Duplicate participants are not allowed"
+}
+// o
+{
+  "error": "Validation error",
+  "details": [...]
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "One or more participants not found"
+}
+```
+
+---
+
+### Listar Mis Partidos Informales
+
+**GET** `/matches`
+
+Obtiene los partidos informales del usuario autenticado (como creador o participante).
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+- `page`: number (default: 1)
+- `limit`: number (default: 20)
+- `matchType`: "SINGLES" | "DOUBLES"
+- `completed`: boolean
+- `userId`: string (cuid) - Ver partidos de otro usuario
+
+**Response 200 - Success:**
+
+```json
+{
+  "matches": [
+    {
+      "id": "mtc1234567890",
+      "matchType": "DOUBLES",
+      "startTime": "2024-12-25T10:00:00.000Z",
+      "endTime": "2024-12-25T11:30:00.000Z",
+      "score": "21-19,21-17",
+      "completed": true,
+      "creator": {
+        "id": "usr1234567890",
+        "name": "John Doe",
+        "avatar": null
+      },
+      "participants": [...],
+      "event": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "totalCount": 45,
+    "totalPages": 3,
+    "hasNextPage": true,
+    "hasPreviousPage": false
+  }
+}
+```
+
+---
+
+### Obtener Partido Informal
+
+**GET** `/matches/:id`
+
+Obtiene los detalles de un partido informal. Solo accesible para el creador o participantes.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "match": {
+    "id": "mtc1234567890",
+    "matchType": "DOUBLES",
+    "startTime": "2024-12-25T10:00:00.000Z",
+    "endTime": "2024-12-25T11:30:00.000Z",
+    "score": "21-19,21-17",
+    "completed": true,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z",
+    "creator": {...},
+    "participants": [...],
+    "court": null,
+    "event": null
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - You don't have access to this match"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Match not found"
+}
+```
+
+---
+
+### Actualizar Partido Informal
+
+**PUT** `/matches/:id`
+
+Actualiza un partido informal. Solo el creador puede actualizar.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "matchType": "SINGLES" | "DOUBLES", // Opcional
+  "startTime": "string (ISO date)", // Opcional
+  "endTime": "string (ISO date)", // Opcional
+  "score": "string", // Opcional
+  "completed": "boolean", // Opcional
+  "participants": [ // Opcional - reemplaza todos
+    {
+      "userId": "string (cuid)",
+      "team": 1 | 2,
+      "isWinner": "boolean"
+    }
+  ]
+}
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Match updated successfully",
+  "match": {...}
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only the match creator can update this match"
+}
+```
+
+---
+
+### Eliminar Partido Informal
+
+**DELETE** `/matches/:id`
+
+Elimina un partido informal. Solo el creador o SUPER_ADMIN pueden eliminar.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Match deleted successfully",
+  "deletedMatch": {
+    "id": "mtc1234567890",
+    "matchType": "DOUBLES",
+    "completed": true
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only the match creator can delete this match"
+}
+```
+
+---
+
+### Crear Partido de Club
+
+**POST** `/clubs/:id/matches`
+
+Crea un partido oficial del club. Solo el creador del club o SUPER_ADMIN pueden crear.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:**
+
+```json
+{
+  "matchType": "SINGLES" | "DOUBLES", // Requerido
+  "courtId": "string (cuid)", // Requerido (pista del club)
+  "startTime": "string (ISO date)", // Opcional
+  "endTime": "string (ISO date)", // Opcional
+  "score": "string", // Opcional
+  "completed": "boolean", // Opcional (default: false)
+  "eventId": "string (cuid)", // Opcional
+  "participants": [ // Requerido
+    {
+      "userId": "string (cuid)",
+      "team": 1 | 2,
+      "isWinner": "boolean"
+    }
+  ]
+}
+```
+
+**Restricciones adicionales:**
+
+- **`courtId` es obligatorio** y debe pertenecer al club
+- **Todos los participantes deben ser miembros activos del club**
+
+**Response 201 - Success:**
+
+```json
+{
+  "message": "Club match created successfully",
+  "match": {
+    "id": "mtc1234567890",
+    "matchType": "DOUBLES",
+    "startTime": "2024-12-25T10:00:00.000Z",
+    "score": "21-19,21-17",
+    "completed": true,
+    "creator": {...},
+    "participants": [...],
+    "court": {
+      "id": "crt1234567890",
+      "name": "Pista Central"
+    },
+    "event": {...}
+  }
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only club creator or super admin can create club matches"
+}
+// o
+{
+  "error": "All participants must be active members of the club",
+  "details": {
+    "nonMemberIds": ["usr1234567890"]
+  }
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Court not found, not active, or doesn't belong to this club"
+}
+```
+
+---
+
+### Listar Partidos del Club
+
+**GET** `/clubs/:id/matches`
+
+Obtiene los partidos de un club. Accesible para creador, miembros activos, o SUPER_ADMIN.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+- `page`: number (default: 1)
+- `limit`: number (default: 20)
+- `matchType`: "SINGLES" | "DOUBLES"
+- `completed`: boolean
+- `courtId`: string (cuid)
+- `eventId`: string (cuid)
+
+**Response 200 - Success:**
+
+```json
+{
+  "club": {
+    "id": "clp1234567890",
+    "name": "Club Pickleball Madrid",
+    "city": "Madrid"
+  },
+  "matches": [...],
+  "pagination": {...}
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - You must be a club member to view club matches"
+}
+```
+
+---
+
+### Obtener Partido de Club
+
+**GET** `/clubs/:id/matches/:matchId`
+
+Obtiene los detalles de un partido del club.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "match": {...}
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Match not found in this club"
+}
+```
+
+---
+
+### Actualizar Partido de Club
+
+**PUT** `/clubs/:id/matches/:matchId`
+
+Actualiza un partido del club. Solo creador del club o SUPER_ADMIN.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Request Body:** (Mismo formato que crear, todos opcionales)
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Club match updated successfully",
+  "match": {...}
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Only club creator or super admin can update club matches"
+}
+```
+
+---
+
+### Eliminar Partido de Club
+
+**DELETE** `/clubs/:id/matches/:matchId`
+
+Elimina un partido del club. Solo creador del club o SUPER_ADMIN.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Club match deleted successfully",
+  "deletedMatch": {
+    "id": "mtc1234567890",
+    "matchType": "DOUBLES",
+    "completed": true,
+    "court": "Pista Central"
+  }
+}
+```
+
+---
+
+### Listar Partidos de un Evento
+
+**GET** `/events/:id/matches`
+
+Obtiene todos los partidos asociados a un evento. Acceso según visibilidad del evento.
+
+**Query Parameters:**
+
+- `page`: number (default: 1)
+- `limit`: number (default: 20)
+- `matchType`: "SINGLES" | "DOUBLES"
+- `completed`: boolean
+
+**Response 200 - Success:**
+
+```json
+{
+  "event": {
+    "id": "evt1234567890",
+    "title": "Torneo de Navidad",
+    "type": "TOURNAMENT",
+    "club": {...}
+  },
+  "matches": [...],
+  "stats": {
+    "total": 32,
+    "completed": 28,
+    "inProgress": 4,
+    "singles": 8,
+    "doubles": 24
+  },
+  "pagination": {...}
+}
+```
+
+---
+
+### Historial de Partidos de Usuario
+
+**GET** `/users/:id/matches`
+
+Obtiene el historial completo de partidos de un usuario con estadísticas. Solo el propio usuario o SUPER_ADMIN.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+- `page`: number (default: 1)
+- `limit`: number (default: 20)
+- `matchType`: "SINGLES" | "DOUBLES"
+- `completed`: boolean
+- `clubMatches`: boolean
+- `informalMatches`: boolean
+
+**Response 200 - Success:**
+
+```json
+{
+  "user": {
+    "id": "usr1234567890",
+    "name": "John Doe",
+    "duprRating": 3.5
+  },
+  "matches": [...],
+  "stats": {
+    "totalMatches": 127,
+    "completedMatches": 98,
+    "wins": 65,
+    "losses": 33,
+    "singlesMatches": 42,
+    "doublesMatches": 85,
+    "clubMatches": 73,
+    "informalMatches": 54,
+    "winRate": "66.3%"
+  },
+  "pagination": {...}
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - You can only view your own match history"
+}
+```
+
 ## 📊 Códigos de Estado HTTP
 
 | Código | Significado                                                           |
@@ -2156,14 +2786,28 @@ Authorization: Bearer <jwt_token>
 ```typescript
 {
   id: string,
-  startTime?: string (ISO date),
-  endTime?: string (ISO date),
-  score?: string, // Formato: "21-19,21-17"
+  matchType: "SINGLES" | "DOUBLES",
+  startTime: string (ISO date) | null,
+  endTime: string (ISO date) | null,
+  score: string | null, // Formato: "21-19,21-17"
   completed: boolean,
-  eventId?: string,
-  courtId: string,
+  creatorId: string,
+  courtId: string | null, // null = partido informal
+  eventId: string | null,
   createdAt: string (ISO date),
   updatedAt: string (ISO date)
+}
+```
+
+### MatchParticipant
+
+```typescript
+{
+  id: string,
+  team: 1 | 2,
+  isWinner: boolean,
+  userId: string,
+  matchId: string
 }
 ```
 
@@ -2221,19 +2865,34 @@ Authorization: Bearer <jwt_token>
 - `PUT /clubs/:clubId/courts/:id` - Actualizar pista
 - `DELETE /clubs/:clubId/courts/:id` - Eliminar pista
 
+### ✅ Partidos (Matches)
+
+**Partidos Informales:**
+
+- `POST /matches` - Crear partido informal
+- `GET /matches` - Listar mis partidos informales
+- `GET /matches/:id` - Ver partido informal específico
+- `PUT /matches/:id` - Actualizar partido informal
+- `DELETE /matches/:id` - Eliminar partido informal
+
+**Partidos de Club:**
+
+- `POST /clubs/:id/matches` - Crear partido oficial del club
+- `GET /clubs/:id/matches` - Listar partidos del club
+- `GET /clubs/:id/matches/:matchId` - Ver partido específico del club
+- `PUT /clubs/:id/matches/:matchId` - Actualizar partido del club
+- `DELETE /clubs/:id/matches/:matchId` - Eliminar partido del club
+
+**Consultas Especiales:**
+
+- `GET /events/:id/matches` - Listar partidos de un evento
+- `GET /users/:id/matches` - Historial de partidos de usuario
+
 ---
 
 ## 🔜 Próximos Endpoints
 
 Los siguientes endpoints están planificados para implementar:
-
-### Partidos (Matches)
-
-- `POST /matches` - Crear partido/registrar resultado
-- `GET /matches` - Listar partidos
-- `GET /matches/:id` - Obtener partido específico
-- `PUT /matches/:id` - Actualizar partido
-- `DELETE /matches/:id` - Eliminar partido
 
 ### Pagos
 
@@ -2406,7 +3065,17 @@ user_id=[ID del usuario para testing]
 
 ## 🎯 Changelog
 
-### v1.1.0 (Actual)
+### v1.2.0 (Actual)
+
+- ✅ Sistema completo de partidos (informales y de club)
+- ✅ Diferenciación entre partidos SINGLES (1vs1) y DOUBLES (2vs2)
+- ✅ Tracking de resultados con formato de score validado
+- ✅ Historial de partidos por usuario con estadísticas
+- ✅ Estadísticas: wins, losses, win rate
+- ✅ Partidos vinculados a eventos
+- ✅ Validación de membresía para partidos de club
+
+### v1.1.0
 
 - ✅ Gestión completa de usuarios (CRUD)
 - ✅ Actualización de perfil con cambio de contraseña

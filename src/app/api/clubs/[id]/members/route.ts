@@ -184,7 +184,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const { id: clubId } = params;
+    const { id: clubId } = await params;
 
     if (!clubId) {
       return NextResponse.json(

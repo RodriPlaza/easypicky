@@ -55,6 +55,11 @@ enum SubscriptionStatus {
   UNPAID
 }
 
+enum MatchType {
+  SINGLES  // 1vs1
+  DOUBLES  // 2vs2
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -82,6 +87,7 @@ model User {
   matchParticipations MatchParticipant[]
   payments        Payment[]
   createdClubs    Club[] @relation("ClubCreator")
+  createdMatches  Match[] @relation("MatchCreator")
   
   @@map("users")
 }
@@ -251,19 +257,22 @@ model EventParticipant {
 
 model Match {
   id            String      @id @default(cuid())
+  matchType     MatchType   // Tipo de partido
   startTime     DateTime?
   endTime       DateTime?
-  score         String?     // Formato: "21-19,21-17" o similar
+  score         String?     // Formato: "21-19,21-17" (1-5 sets)
   completed     Boolean     @default(false)
   
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   
   // Relaciones
+  creator       User        @relation("MatchCreator", fields: [creatorId], references: [id])
+  creatorId     String
   event         Event?      @relation(fields: [eventId], references: [id])
   eventId       String?
-  court         Court       @relation(fields: [courtId], references: [id])
-  courtId       String
+  court         Court?      @relation(fields: [courtId], references: [id])
+  courtId       String?     // Ahora es opcional
   
   participants  MatchParticipant[]
   
@@ -278,7 +287,7 @@ model MatchParticipant {
   // Relaciones
   user      User    @relation(fields: [userId], references: [id])
   userId    String
-  match     Match   @relation(fields: [matchId], references: [id])
+  match     Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
   matchId   String
   
   @@unique([userId, matchId])
