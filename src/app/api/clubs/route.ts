@@ -4,19 +4,28 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { withAuth } from "@/lib/auth-middleware";
 
-const createClubSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Club name is required")
-    .max(100, "Club name too long"),
-  description: z.string().optional(),
-  address: z.string().min(1, "Address is required"),
-  city: z.string().min(1, "City is required"),
-  phone: z.string().optional(),
-  email: z.string().email("Invalid email address").optional(),
-  website: z.string().url("Invalid website URL").optional(),
-  logo: z.string().url("Invalid logo URL").optional(),
-});
+const createClubSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Club name is required")
+      .max(100, "Club name too long"),
+    description: z.string().optional(),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    phone: z.string().optional(),
+    email: z.string().email("Invalid email address").optional(),
+    website: z.string().url("Invalid website URL").optional(),
+    logo: z.string().url("Invalid logo URL").optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    description: data.description || undefined,
+    phone: data.phone || undefined,
+    email: data.email || undefined,
+    website: data.website || undefined,
+    logo: data.logo || undefined,
+  }));
 
 const listClubsSchema = z.object({
   page: z
