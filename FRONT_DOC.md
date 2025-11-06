@@ -58,6 +58,7 @@
   - ✅ Edición de club (creador/admin)
   - ✅ Eliminación de club (creador/admin)
   - ✅ Gestión de miembros (agregar, actualizar estado, eliminar)
+  - ✅ Gestión de pistas (crear, editar, activar/desactivar, eliminar)
   - ✅ Sistema de autenticación con JWT para API
 
 ### 🚧 En Desarrollo
@@ -97,14 +98,21 @@ easy-picky/
 │   │           ├── page.tsx               # Detalle de club
 │   │           ├── edit/
 │   │           │   └── page.tsx           # Editar club
-│   │           └── members/
-│   │               └── page.tsx           # Gestionar miembros
+│   │           │   members/
+│   │           │   └── page.tsx           # Gestionar miembros
+│   │           └── courts/
+│   │               └── page.tsx
 │   │
 │   ├── components/
 │   │   ├── auth/
 │   │   │   ├── LoginForm.tsx         # Formulario de login
 │   │   │   └── RegisterForm.tsx      # Formulario de registro
-│   │   │
+│   │   ├── clubs/
+│   │   │   ├── ClubForm.tsx
+│   │   │   └── ClubCard.tsx
+│   │   ├── courts/
+│   │   │   ├── CourtForm.tsx
+│   │   │   └── CourtCard.tsx
 │   │   ├── providers/
 │   │   │   └── AuthProvider.tsx      # Provider de NextAuth
 │   │   │
@@ -131,6 +139,7 @@ easy-picky/
 │   │
 │   └── types/
 │       ├── club.ts                        # Tipos TypeScript para clubes
+│       ├── court.ts
 │       └── next-auth.d.ts            # Types de NextAuth extendidos
 │
 ├── prisma/
@@ -652,6 +661,77 @@ import { ClubCard } from "@/components/clubs/ClubCard";
 <ClubCard club={clubData} />;
 ```
 
+### 5. Componentes de Courts (`src/components/courts/`)
+
+#### CourtForm (`CourtForm.tsx`)
+
+Formulario reutilizable para crear y editar pistas.
+
+**Características:**
+
+- Validación con Zod
+- Modo crear/editar
+- Estados de carga
+- Manejo de errores
+- Integración con API
+
+**Campos:**
+
+- Name (requerido, max 100 caracteres)
+- Description (opcional, max 500 caracteres)
+- isActive (boolean, checkbox)
+
+**Modos:**
+
+- `create` - Crear nueva pista
+- `edit` - Editar pista existente
+
+**Uso:**
+
+```tsx
+import { CourtForm } from "@/components/courts/CourtForm";
+
+// Crear
+<CourtForm mode="create" clubId={clubId} />
+
+// Editar
+<CourtForm mode="edit" clubId={clubId} court={courtData} />
+```
+
+#### CourtCard (`CourtCard.tsx`)
+
+Tarjeta de pista para mostrar en listados.
+
+**Características:**
+
+- Muestra información de la pista
+- Badge de estado (Activa/Inactiva)
+- Dropdown menu con acciones (editar, activar/desactivar, eliminar)
+- Estadísticas (eventos, partidos)
+- Opacidad reducida para pistas inactivas
+
+**Props:**
+
+- `court` - Objeto Court con información completa
+- `clubId` - ID del club
+- `canManage` - Boolean para mostrar acciones
+- `onEdit`, `onToggleActive`, `onDelete` - Callbacks opcionales
+
+**Uso:**
+
+```tsx
+import { CourtCard } from "@/components/courts/CourtCard";
+
+<CourtCard
+  court={courtData}
+  clubId={clubId}
+  canManage={true}
+  onEdit={handleEdit}
+  onToggleActive={handleToggle}
+  onDelete={handleDelete}
+/>;
+```
+
 ---
 
 ## 📄 Páginas Implementadas
@@ -898,6 +978,75 @@ import { ClubCard } from "@/components/clubs/ClubCard";
 
 ---
 
+### 11. Página de Gestión de Pistas (`src/app/clubs/[id]/courts/page.tsx`)
+
+**Ruta:** `/clubs/[id]/courts`
+
+**Protección:** ⚠️ Acceso público (lectura), gestión requiere permisos (creador/SUPER_ADMIN)
+
+**Secciones:**
+
+1. **Header**
+
+   - Nombre del club
+   - Botón "Volver"
+   - Botón "+ Nueva Pista" (solo si canManage)
+
+2. **Estadísticas**
+
+   - Total de pistas
+   - Pistas activas
+   - Pistas inactivas
+
+3. **Listado de Pistas Activas**
+
+   - Grid responsive (3 columnas desktop, 2 tablet, 1 móvil)
+   - Cards con información y acciones
+   - Badge verde "Activa"
+
+4. **Listado de Pistas Inactivas**
+
+   - Separado de las activas
+   - Opacidad reducida
+   - Badge gris "Inactiva"
+
+5. **Empty State**
+   - Mensaje cuando no hay pistas
+   - Botón para crear primera pista
+
+**Funcionalidades:**
+
+- **Crear pista** (creador/admin)
+
+  - Modal con formulario
+  - Validación con Zod
+  - Toast de confirmación
+
+- **Editar pista** (creador/admin)
+
+  - Modal pre-cargado con datos
+  - Actualización parcial de campos
+
+- **Activar/Desactivar** (creador/admin)
+
+  - Toggle rápido desde dropdown
+  - Validación de eventos futuros
+
+- **Eliminar pista** (creador/admin)
+  - Modal de confirmación
+  - Validación de eventos/partidos vinculados
+  - Mensaje de advertencia si tiene datos
+
+**Estado:** ✅ Implementada
+
+**Integraciones:**
+
+- API: `/api/clubs/[id]/courts` (GET, POST)
+- API: `/api/clubs/[id]/courts/[courtId]` (GET, PUT, DELETE)
+- Validaciones del backend integradas
+
+---
+
 ## 🔐 Sistema de Autenticación
 
 ### Flujo de Autenticación
@@ -1106,6 +1255,17 @@ Definiciones TypeScript para trabajar con clubes.
 - `ClubsResponse` - Respuesta del listado con paginación
 - `MembersResponse` - Respuesta del listado de miembros
 
+### Tipos de Court (`src/types/court.ts`)
+
+Definiciones TypeScript para trabajar con pistas.
+
+**Interfaces principales:**
+
+- `Court` - Información completa de la pista
+- `CreateCourtData` - Datos para crear pista
+- `UpdateCourtData` - Datos para actualizar pista
+- `CourtsResponse` - Respuesta del listado con información del club
+
 ---
 
 ## 🎨 Estilos y Diseño
@@ -1307,10 +1467,15 @@ export function cn(...inputs) {
   - [ ] Gráficos de actividad
   - [ ] Accesos rápidos
 
-- [ ] **Pistas** (`/clubs/[id]/courts`)
-  - [ ] Lista de pistas
-  - [ ] Crear/editar/eliminar pistas
-  - [ ] Activar/desactivar
+- [x] **Pistas** (`/clubs/[id]/courts`)
+  - [x] Lista de pistas (activas/inactivas separadas)
+  - [x] Crear pistas
+  - [x] Editar pistas
+  - [x] Activar/desactivar pistas
+  - [x] Eliminar pistas (con validaciones)
+  - [x] Stats en tiempo real
+  - [x] Control de permisos
+  - [x] Responsive design
 
 ---
 
@@ -1881,7 +2046,11 @@ git commit -m "docs(readme): update installation steps"
 - [x] Editar club
 - [x] Gestionar miembros
 - [x] Eliminar club
-- [ ] Gestionar pistas
+- [x] Gestionar pistas
+  - [x] Crear pistas
+  - [x] Editar pistas
+  - [x] Activar/desactivar
+  - [x] Eliminar pistas
 - [ ] Dashboard del club
 
 ### Eventos (Usuario)

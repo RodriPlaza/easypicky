@@ -176,6 +176,9 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
               <Link href={`/clubs/${club.id}/edit`}>
                 <Button variant="outline">Editar Información</Button>
               </Link>
+              <Link href={`/clubs/${club.id}/courts`}>
+                <Button variant="outline">Gestionar Pistas</Button>
+              </Link>
               <Link href={`/clubs/${club.id}/members`}>
                 <Button variant="outline">Gestionar Miembros</Button>
               </Link>
