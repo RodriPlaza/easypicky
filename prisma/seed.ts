@@ -6,18 +6,24 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminPw = process.env.ADMIN_PW || "";
-  const hashedPassword = await bcrypt.hash(adminPw, 12);
+  const adminEmail = process.env.ADMIN_EMAIL || "";
+  const adminName = process.env.ADMIN_NAME || "";
+  if (adminPw == "" || adminEmail == "" || adminName == "") {
+    console.log("Admin not created: Please fill all admin data on .env");
+  } else {
+    const hashedPassword = await bcrypt.hash(adminPw, 12);
 
-  const admin = await prisma.user.create({
-    data: {
-      email: "admin@example.com",
-      name: "Admin Usuario",
-      password: hashedPassword,
-      role: "SUPER_ADMIN",
-    },
-  });
+    const admin = await prisma.user.create({
+      data: {
+        email: process.env.ADMIN_EMAIL || "",
+        name: "Admin Usuario",
+        password: hashedPassword,
+        role: "SUPER_ADMIN",
+      },
+    });
 
-  console.log("Admin created:", admin);
+    console.log("Admin created:", admin);
+  }
 }
 
 main()

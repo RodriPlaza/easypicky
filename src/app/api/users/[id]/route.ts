@@ -1,31 +1,38 @@
 // src/app/api/users/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { withRole, AuthenticatedUser } from "@/lib/auth-middleware";
+import { withRole, withAuth, AuthenticatedUser } from "@/lib/auth-middleware";
 import { prisma } from "@/lib/prisma";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-// GET - Obtener usuario específico (solo SUPER_ADMIN)
-export const GET = withRole(
-  ["SUPER_ADMIN"],
+// GET - Obtener usuario específico (propio perfil o SUPER_ADMIN puede ver cualquiera)
+export const GET = withAuth(
   async (
     request: NextRequest,
     user: AuthenticatedUser,
     context?: RouteContext
   ) => {
     try {
-      if (!context?.params?.id) {
+      if (!context?.params) {
         return NextResponse.json(
           { error: "User ID is required" },
           { status: 400 }
         );
       }
 
-      const userId = context.params.id;
+      const { id: userId } = await context.params;
+
+      // Verificar que el usuario solo puede ver su propio perfil, a menos que sea SUPER_ADMIN
+      if (userId !== user.userId && user.role !== "SUPER_ADMIN") {
+        return NextResponse.json(
+          { error: "Forbidden - You can only view your own profile" },
+          { status: 403 }
+        );
+      }
 
       const userProfile = await prisma.user.findUnique({
         where: { id: userId },
@@ -79,14 +86,14 @@ export const DELETE = withRole(
     context?: RouteContext
   ) => {
     try {
-      if (!context?.params?.id) {
+      if (!context?.params) {
         return NextResponse.json(
           { error: "User ID is required" },
           { status: 400 }
         );
       }
 
-      const userId = context.params.id;
+      const { id: userId } = await context.params;
 
       // No permitir que un super admin se elimine a sí mismo
       if (userId === user.userId) {

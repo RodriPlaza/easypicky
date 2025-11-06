@@ -1,7 +1,7 @@
 // src/lib/auth-middleware.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { verify } from "jsonwebtoken";
+import { verify, JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { prisma } from "./prisma";
 import { UserRole } from "@prisma/client";
 
@@ -19,6 +19,11 @@ export async function verifyToken(
     const authHeader = request.headers.get("authorization");
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn("[Auth] Missing or invalid authorization header", {
+        timestamp: new Date().toISOString(),
+        path: request.nextUrl.pathname,
+        hasHeader: !!authHeader,
+      });
       return null;
     }
 
@@ -33,6 +38,11 @@ export async function verifyToken(
     });
 
     if (!user) {
+      console.warn("[Auth] User not found in database", {
+        timestamp: new Date().toISOString(),
+        userId: decoded.userId,
+        path: request.nextUrl.pathname,
+      });
       return null;
     }
 
@@ -42,7 +52,28 @@ export async function verifyToken(
       role: user.role,
     };
   } catch (error) {
-    console.error("Token verification error:", error);
+    // Manejo específico de errores de JWT
+    if (error instanceof TokenExpiredError) {
+      console.warn("[Auth] Token expired", {
+        timestamp: new Date().toISOString(),
+        expiredAt: error.expiredAt.toISOString(),
+        path: request.nextUrl.pathname,
+      });
+    } else if (error instanceof JsonWebTokenError) {
+      console.warn("[Auth] Invalid token", {
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        path: request.nextUrl.pathname,
+      });
+    } else {
+      // Error inesperado
+      console.error("[Auth] Unexpected error during token verification", {
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        path: request.nextUrl.pathname,
+      });
+    }
     return null;
   }
 }
@@ -83,6 +114,13 @@ export function withRole<T = any>(
     }
 
     if (!roles.includes(user.role)) {
+      console.warn("[Auth] Insufficient permissions", {
+        timestamp: new Date().toISOString(),
+        userId: user.userId,
+        userRole: user.role,
+        requiredRoles: roles,
+        path: request.nextUrl.pathname,
+      });
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
         { status: 403 }

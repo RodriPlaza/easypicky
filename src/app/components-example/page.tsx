@@ -38,10 +38,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { RegisterForm } from "@/components/auth/RegisterForm";
 
 export default function ComponentsExamplePage() {
   const { addToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
   // Datos de ejemplo para la tabla
   const users = [
@@ -84,6 +91,149 @@ export default function ComponentsExamplePage() {
             Ejemplos de todos los componentes base implementados
           </p>
         </div>
+
+        {/* Formularios de Autenticación */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Formularios de Autenticación</CardTitle>
+            <CardDescription>
+              Formularios completos con validación usando React Hook Form y Zod
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setAuthMode("login");
+                  setAuthDialogOpen(true);
+                }}
+              >
+                Ver Login Form
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAuthMode("register");
+                  setAuthDialogOpen(true);
+                }}
+              >
+                Ver Register Form
+              </Button>
+            </div>
+
+            <Dialog open={authDialogOpen} onOpenChange={setAuthDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {authMode === "login" ? "Iniciar Sesión" : "Crear Cuenta"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {authMode === "login"
+                      ? "Ingresa tus credenciales para continuar"
+                      : "Completa el formulario para registrarte"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  {authMode === "login" ? <LoginForm /> : <RegisterForm />}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+
+        {/* Input & Label */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Input & Label</CardTitle>
+            <CardDescription>
+              Campos de entrada de texto con etiquetas
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="text-input">Texto</Label>
+                <Input
+                  id="text-input"
+                  type="text"
+                  placeholder="Escribe algo..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email-input">Email</Label>
+                <Input
+                  id="email-input"
+                  type="email"
+                  placeholder="tu@email.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password-input">Contraseña</Label>
+                <Input
+                  id="password-input"
+                  type="password"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="number-input">Número</Label>
+                <Input id="number-input" type="number" placeholder="123" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tel-input">Teléfono</Label>
+                <Input
+                  id="tel-input"
+                  type="tel"
+                  placeholder="+34 666 777 888"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="disabled-input">Deshabilitado</Label>
+                <Input
+                  id="disabled-input"
+                  type="text"
+                  placeholder="Campo deshabilitado"
+                  disabled
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Textarea */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Textarea</CardTitle>
+            <CardDescription>
+              Campos de texto multilínea para contenido extenso
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="textarea-default">Descripción</Label>
+              <Textarea
+                id="textarea-default"
+                placeholder="Escribe una descripción detallada..."
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="textarea-disabled">Deshabilitado</Label>
+              <Textarea
+                id="textarea-disabled"
+                placeholder="Campo deshabilitado"
+                disabled
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Toasts */}
         <Card>
@@ -260,18 +410,23 @@ export default function ComponentsExamplePage() {
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Nombre</label>
-                    <input
-                      className="w-full px-3 py-2 border rounded-md"
-                      placeholder="Tu nombre"
+                    <Label htmlFor="modal-name">Nombre</Label>
+                    <Input id="modal-name" placeholder="Tu nombre" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="modal-email">Email</Label>
+                    <Input
+                      id="modal-email"
+                      type="email"
+                      placeholder="tu@email.com"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2 border rounded-md"
-                      placeholder="tu@email.com"
+                    <Label htmlFor="modal-bio">Biografía</Label>
+                    <Textarea
+                      id="modal-bio"
+                      placeholder="Cuéntanos sobre ti..."
+                      rows={3}
                     />
                   </div>
                 </div>
