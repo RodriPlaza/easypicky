@@ -73,11 +73,22 @@
   - ✅ Solicitar unirse a club (usuarios regulares)
   - ✅ Salir de club / Cancelar solicitud
   - ✅ Ver mis clubes con filtros por estado
+  - **Gestión de Eventos**
+  - ✅ Listado de eventos con búsqueda y filtros
+  - ✅ Eventos cercanos por ciudad del usuario
+  - ✅ Crear eventos desde el club (creadores)
+  - ✅ Inscribirse a eventos
+  - ✅ Cancelar inscripción
+  - ✅ Ver "Mis Eventos" con filtros por estado
+  - ✅ Sistema de tabs en detalle de club (Información/Eventos)
+  - ✅ Integración completa con API de eventos
+  - ✅ Paginación y filtros avanzados
 
 ### 🚧 En Desarrollo
 
-- Gestión de eventos
+- ~~Gestión de eventos~~ ✅ COMPLETADA (80%)
 - Integración de datos reales en dashboard
+- Detalle completo de evento (con edición y gestión de participantes)
 
 ### ❌ Pendiente
 
@@ -99,6 +110,13 @@ easy-picky/
 │   │   │   │   └── page.tsx          # Página de login
 │   │   │   └── signup/
 │   │   │       └── page.tsx          # Página de registro
+│   │   ├── events/
+│   │   │   ├── page.tsx              # Listado de eventos
+│   │   │   └── nearby/
+│   │   │       └── page.tsx          # Eventos cercanos
+│   │   │
+│   │   ├── my-events/
+│   │   │   └── page.tsx              # Mis eventos
 │   │   ├── profile/
 │   │   │   └── page.tsx              # Página de perfil de usuario
 │   │   ├── my-clubs/
@@ -124,6 +142,9 @@ easy-picky/
 │   │   ├── auth/
 │   │   │   ├── LoginForm.tsx         # Formulario de login
 │   │   │   └── RegisterForm.tsx      # Formulario de registro
+│   │   ├── events/
+│   │   │   ├── EventForm.tsx         # Formulario de evento
+│   │   │   └── EventCard.tsx         # Card de evento
 │   │   ├── profile/
 │   │   │   ├── ProfileForm.tsx       # Formulario de edición de perfil
 │   │   │   └── ChangePasswordForm.tsx # Formulario de cambio de contraseña
@@ -162,6 +183,7 @@ easy-picky/
 │       ├── user.ts                   # Tipos TypeScript para usuarios
 │       ├── club.ts                   # Tipos TypeScript para clubes
 │       ├── court.ts                  # Tipos TypeScript para pistas
+│       ├── event.ts                  # Tipos TypeScript para eventos
 │       └── next-auth.d.ts            # Types de NextAuth extendidos
 │
 ├── prisma/
@@ -864,7 +886,83 @@ import { ClubCard } from "@/components/clubs/ClubCard";
 />;
 ```
 
----
+### 8. Componentes de Eventos (`src/components/events/`)
+
+#### EventForm (`EventForm.tsx`)
+
+Formulario reutilizable para crear y editar eventos.
+
+**Características:**
+
+- Validación con Zod
+- Modo crear/editar
+- Estados de carga
+- Manejo de errores
+- Integración con API
+- Selección de pista del club
+- Validación de fechas (fin > inicio)
+
+**Campos:**
+
+- Title (requerido, min 3 caracteres)
+- Description (opcional)
+- Type (CLASS, TOURNAMENT, MEETUP)
+- Visibility (OPEN, MEMBERS_ONLY, PRIVATE)
+- Status (SCHEDULED, ONGOING, COMPLETED, CANCELLED) - solo edición
+- Start Date Time (requerido)
+- End Date Time (requerido, debe ser > inicio)
+- Court ID (opcional)
+- Max Participants (opcional, número positivo)
+- Price (opcional, número >= 0)
+
+**Modos:**
+
+- `create` - Crear nuevo evento
+- `edit` - Editar evento existente
+
+**Uso:**
+
+```tsx
+import { EventForm } from "@/components/events/EventForm";
+
+// Crear (usado en modal del club)
+<EventForm mode="create" clubId={clubId} courts={courts} onSuccess={handleSuccess} />
+
+// Editar
+<EventForm mode="edit" clubId={clubId} event={eventData} courts={courts} />
+```
+
+#### EventCard (`EventCard.tsx`)
+
+Tarjeta de evento para mostrar en listados.
+
+**Características:**
+
+- Muestra información resumida del evento
+- Badges dinámicos (tipo, visibilidad, estado)
+- Formateo de fechas en español
+- Información del club (configurable)
+- Botones de acción (Ver, Inscribirse, Cancelar)
+- Estados de carga en acciones
+- Integración con API
+
+**Props:**
+
+- `event` - Objeto Event con información completa
+- `showClubInfo` - Mostrar info del club (default: true)
+- `onJoinChange` - Callback al cambiar inscripción
+
+**Uso:**
+
+```tsx
+import { EventCard } from "@/components/events/EventCard";
+
+// En listado público
+<EventCard event={eventData} onJoinChange={refetchEvents} />
+
+// En página de club (sin mostrar info del club)
+<EventCard event={eventData} showClubInfo={false} onJoinChange={refetchEvents} />
+```
 
 ---
 
@@ -952,11 +1050,14 @@ import { ClubCard } from "@/components/clubs/ClubCard";
    - Membresías activas
    - Partidos jugados
 
-4. **Acciones Rápidas** (deshabilitadas - futuro)
+4. **Acciones Rápidas**
 
+   - Mi Perfil
+   - Mis Clubes
    - Buscar Clubes
-   - Ver Eventos
-   - Mis Partidos
+   - Ver Eventos → `/events`
+   - Mis Eventos → `/my-events`
+   - Mis Partidos (deshabilitado)
 
 5. **Actividad Reciente**
    - Placeholder vacío
@@ -1047,14 +1148,23 @@ import { ClubCard } from "@/components/clubs/ClubCard";
    - Descripción
    - Badges con estadísticas
 
-2. **Información de Contacto**
+2. **Sistema de Tabs**
+
+   - Tab "Información": Contacto y creador
+   - Tab "Eventos": Lista de eventos del club
+     - Botón "+ Crear Evento" (solo creadores)
+     - Grid de eventos con EventCard
+     - Empty state cuando no hay eventos
+     - Actualización automática tras crear
+
+3. **Información de Contacto** (en Tab Información)
 
    - Dirección
    - Teléfono (si existe)
    - Email (si existe)
    - Website (si existe)
 
-3. **Información del Creador**
+4. **Información del Creador** (en Tab Información)
    - Nombre
    - Email
    - Fecha de creación
@@ -1273,6 +1383,110 @@ import { ClubCard } from "@/components/clubs/ClubCard";
 - API: `DELETE /clubs/[id]/join`
 - Manejo de estados con badges coloreados
 - Modales de confirmación con Dialog
+
+---
+
+### 14. Página de Listado de Eventos (`src/app/events/page.tsx`)
+
+**Ruta:** `/events`
+
+**Protección:** ❌ No requiere autenticación (acceso público)
+
+**Funcionalidades:**
+
+- Listado paginado de eventos (12 por página)
+- Búsqueda por título/descripción
+- Filtros:
+  - Ciudad
+  - Tipo (CLASS, TOURNAMENT, MEETUP)
+  - Estado (SCHEDULED, ONGOING, COMPLETED, CANCELLED)
+- Aplicar/Limpiar filtros
+- Grid responsive (3-2-1 columnas)
+- Botones de navegación: "Eventos Cercanos", "Mis Eventos", "Dashboard"
+- Inscribirse/Cancelar desde los cards (si está logueado)
+- Contador de resultados
+- Paginación con controles anterior/siguiente
+- Empty state cuando no hay resultados
+
+**Estado:** ✅ Implementada
+
+**Integración API:** `GET /events?page=1&limit=12&search=&city=&type=&status=`
+
+---
+
+### 15. Página de Eventos Cercanos (`src/app/events/nearby/page.tsx`)
+
+**Ruta:** `/events/nearby`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Funcionalidades:**
+
+- Eventos en la ciudad del usuario (desde perfil)
+- Filtros:
+  - Tipo de evento (CLASS, TOURNAMENT, MEETUP)
+  - Próximos días (1, 3, 7, 14, 30 días)
+  - Solo eventos abiertos (checkbox)
+- Listado paginado (12 por página)
+- Grid responsive
+- Botones de navegación
+- Empty state con sugerencia para buscar en todas las ciudades
+
+**Estado:** ✅ Implementada
+
+**Nota:** Usa la ciudad configurada en el perfil del usuario logueado
+
+**Integración API:** `GET /events/nearby?city=&daysAhead=7&type=&openOnly=false`
+
+---
+
+### 16. Página "Mis Eventos" (`src/app/my-events/page.tsx`)
+
+**Ruta:** `/my-events`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Header**
+
+   - Título "Mis Eventos"
+   - Botones: "Eventos Cercanos", "Dashboard"
+
+2. **Tabs de Filtrado**
+
+   - Próximos (SCHEDULED, fecha futura)
+   - Pasados (fecha pasada)
+   - Todos
+
+3. **Grid de Eventos**
+
+   - Cards con información del evento
+   - Estado de inscripción visible
+   - Botón "Cancelar" si está inscrito
+   - Información del club organizador
+   - Fechas formateadas
+   - Paginación
+
+4. **Empty State**
+   - Mensaje personalizado según el tab
+   - Botón para buscar eventos
+
+**Funcionalidades:**
+
+- **Ver mis inscripciones**: Lista todos los eventos donde el usuario está inscrito
+- **Filtrar por estado**: Próximos, Pasados, Todos
+- **Cancelar inscripción**: Modal de confirmación
+- **Navegación**: Enlaces directos a cada evento
+
+**Estado:** ✅ Implementada
+
+**Integraciones:**
+
+- API: `GET /events?userId=me&startDate=&endDate=&status=`
+- API: `DELETE /events/:id/join` (cancelar inscripción)
+- Paginación con query params
+- Contador de eventos por tab
 
 ---
 
@@ -1710,22 +1924,24 @@ export function cn(...inputs) {
 
 ---
 
-### Fase 4: Gestión de Eventos (2-3 semanas)
+### Fase 4: Gestión de Eventos (2-3 semanas) - ✅ 80% COMPLETADA
 
 #### Vista Usuario Regular
 
-- [ ] **Explorar Eventos** (`/events`)
+- [x] **Explorar Eventos** (`/events`)
 
-  - [ ] Lista de eventos disponibles
-  - [ ] Filtros (tipo, ciudad, fecha)
-  - [ ] Búsqueda
-  - [ ] Calendario de eventos
+  - [x] Lista de eventos disponibles
+  - [x] Filtros (tipo, ciudad, estado)
+  - [x] Búsqueda por título/descripción
+  - [x] Paginación (12 por página)
+  - [x] Inscribirse desde los cards
+  - [x] Cancelar inscripción
 
-- [ ] **Eventos Cercanos** (`/events/nearby`)
+- [x] **Eventos Cercanos** (`/events/nearby`)
 
-  - [ ] Eventos en mi ciudad
-  - [ ] Próximos 7 días
-  - [ ] Filtros específicos
+  - [x] Eventos en mi ciudad
+  - [x] Filtros (tipo, días adelante, solo abiertos)
+  - [x] Paginación
 
 - [ ] **Detalle de Evento** (`/events/[id]`)
 
@@ -1734,19 +1950,26 @@ export function cn(...inputs) {
   - [ ] Botón "Inscribirse"
   - [ ] Compartir evento
 
-- [ ] **Mis Eventos** (`/my-events`)
-  - [ ] Eventos donde estoy inscrito
-  - [ ] Próximos y pasados
-  - [ ] Check-in QR code
+- [x] **Mis Eventos** (`/my-events`)
+
+  - [x] Eventos donde estoy inscrito
+  - [x] Tabs: Próximos, Pasados, Todos
+  - [x] Cancelar inscripción
+  - [x] Paginación por tab
+
+- [x] **Inscribirse a eventos**
+- [x] **Cancelar inscripción**
 
 #### Vista Creador de Club
 
-- [ ] **Crear Evento** (`/events/new`)
+- [x] **Crear Evento** (desde página del club)
 
-  - [ ] Formulario completo
-  - [ ] Selección de pista
-  - [ ] Configuración de visibilidad
-  - [ ] Precio (si aplica)
+  - [x] Modal con formulario completo
+  - [x] Selección automática de pistas del club
+  - [x] Configuración de visibilidad
+  - [x] Precio y límite de participantes
+  - [x] Validación completa de fechas
+  - [x] Integrado en tab "Eventos" del club
 
 - [ ] **Gestionar Evento** (`/events/[id]/manage`)
 
@@ -2192,6 +2415,38 @@ git commit -m "docs(readme): update installation steps"
 - `fix/nombre` - Bug fix
 - `refactor/nombre` - Refactorización
 
+### Notas Importantes sobre Eventos
+
+#### Creación de Eventos
+
+Los eventos **solo se pueden crear desde la página del club** por los creadores:
+
+1. Usuario creador va a su club (`/clubs/[id]`)
+2. Click en tab "Eventos"
+3. Click en botón "+ Crear Evento"
+4. Se abre modal con `EventForm`
+5. Las pistas del club se cargan automáticamente
+6. Al guardar, el modal se cierra y la lista se actualiza
+
+**No existe ruta `/events/new` standalone** - esta aproximación contextual mejora la UX.
+
+#### Navegación de Eventos
+
+- **Desde Dashboard**: Acceso directo a "Ver Eventos" y "Mis Eventos"
+- **Listado público** (`/events`): Cualquiera puede ver eventos
+- **Eventos cercanos** (`/events/nearby`): Filtrado automático por ciudad del usuario
+- **Mis eventos** (`/my-events`): Solo eventos donde estoy inscrito
+
+#### EventCard - Prop `showClubInfo`
+
+```tsx
+// En listado público - muestra info del club
+<EventCard event={event} showClubInfo={true} />
+
+// En página del club - no duplicar info
+<EventCard event={event} showClubInfo={false} />
+```
+
 ---
 
 ## 📞 Recursos y Links
@@ -2292,21 +2547,31 @@ git commit -m "docs(readme): update installation steps"
   - [x] Eliminar pistas
 - [ ] Dashboard del club
 
-### Eventos (Usuario)
+### Eventos (Usuario) ✅
 
-- [ ] Listar eventos
-- [ ] Buscar eventos
+- [x] Listar eventos
+- [x] Buscar eventos (por título/descripción)
+- [x] Filtrar por ciudad, tipo, estado
+- [x] Ver eventos cercanos (por mi ciudad)
+- [x] Inscribirse a evento
+- [x] Cancelar inscripción
+- [x] Ver mis eventos
+- [x] Filtrar mis eventos (próximos/pasados/todos)
 - [ ] Ver detalle de evento
-- [ ] Inscribirse a evento
 - [ ] Check-in en evento
-- [ ] Mis eventos
 
-### Eventos (Creador)
+### Eventos (Creador) ✅
 
-- [ ] Crear evento
+- [x] Crear evento (desde el club)
+- [x] Asignar pista del club
+- [x] Configurar visibilidad (OPEN, MEMBERS_ONLY, PRIVATE)
+- [x] Establecer precio
+- [x] Límite de participantes
+- [x] Ver eventos del club en tab dedicado
 - [ ] Editar evento
 - [ ] Gestionar participantes
 - [ ] Cancelar evento
+- [ ] Ver estadísticas
 
 ### Partidos
 
@@ -2320,6 +2585,7 @@ git commit -m "docs(readme): update installation steps"
 
 - [ ] Configurar Stripe
 - [ ] Pagar eventos
+- [ ] Reservar pistas
 - [ ] Suscripción de club
 - [ ] Ver historial de pagos
 

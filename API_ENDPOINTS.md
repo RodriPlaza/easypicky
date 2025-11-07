@@ -1,4 +1,4 @@
-# EasyPicky API - Frontend Documentation
+# EasyPicky API - Endpoints Documentation
 
 ## Base URL
 

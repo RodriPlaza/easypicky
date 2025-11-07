@@ -23,13 +23,19 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { api, ApiError } from "@/lib/api";
+import { EventForm } from "@/components/events/EventForm";
+import { EventCard } from "@/components/events/EventCard";
 import type { Club } from "@/types/club";
+import type { Event } from "@/types/event";
+import type { Court } from "@/types/court";
 
 interface ClubDetailPageProps {
   params: Promise<{
     id: string;
   }>;
 }
+
+type TabType = "info" | "events";
 
 export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const router = useRouter();
@@ -41,6 +47,14 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Estados para eventos
+  const [activeTab, setActiveTab] = useState<TabType>("info");
+  const [events, setEvents] = useState<Event[]>([]);
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [isLoadingCourts, setIsLoadingCourts] = useState(false);
+  const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
 
   const isCreator = session?.user?.id === club?.creatorId;
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
@@ -58,6 +72,15 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
       fetchClub();
     }
   }, [clubId]);
+
+  useEffect(() => {
+    if (clubId && activeTab === "events") {
+      fetchEvents();
+      if (canManage) {
+        fetchCourts();
+      }
+    }
+  }, [clubId, activeTab, canManage]);
 
   const fetchClub = async () => {
     if (!clubId) return;
@@ -79,6 +102,41 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchEvents = async () => {
+    if (!clubId) return;
+
+    setIsLoadingEvents(true);
+    try {
+      const response = await api.get<{ events: Event[] }>(
+        `/events?clubId=${clubId}&status=SCHEDULED`,
+        { requiresAuth: false }
+      );
+      setEvents(response.events);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      setEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  };
+
+  const fetchCourts = async () => {
+    if (!clubId) return;
+
+    setIsLoadingCourts(true);
+    try {
+      const response = await api.get<{ courts: Court[] }>(
+        `/clubs/${clubId}/courts?isActive=true`
+      );
+      setCourts(response.courts);
+    } catch (error) {
+      console.error("Error fetching courts:", error);
+      setCourts([]);
+    } finally {
+      setIsLoadingCourts(false);
     }
   };
 
@@ -108,6 +166,13 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
       setIsDeleting(false);
       setShowDeleteDialog(false);
     }
+  };
+
+  const handleEventCreated = () => {
+    setShowCreateEventDialog(false);
+    fetchEvents();
+    // Actualizar contador de eventos del club
+    fetchClub();
   };
 
   if (isLoading) {
@@ -186,7 +251,7 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
           </div>
 
           {canManage && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Link href={`/clubs/${club.id}/edit`}>
                 <Button variant="outline">Editar Información</Button>
               </Link>
@@ -206,88 +271,166 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
           )}
         </div>
 
-        {/* Information Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Contact Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Información de Contacto</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Dirección
-                </p>
-                <p>{club.address}</p>
-              </div>
-              {club.phone && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Teléfono
-                  </p>
-                  <p>{club.phone}</p>
-                </div>
-              )}
-              {club.email && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Email
-                  </p>
-                  <a
-                    href={`mailto:${club.email}`}
-                    className="text-primary hover:underline"
-                  >
-                    {club.email}
-                  </a>
-                </div>
-              )}
-              {club.website && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Sitio Web
-                  </p>
-                  <a
-                    href={club.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    {club.website}
-                  </a>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            variant={activeTab === "info" ? "default" : "outline"}
+            onClick={() => setActiveTab("info")}
+          >
+            Información
+          </Button>
+          <Button
+            variant={activeTab === "events" ? "default" : "outline"}
+            onClick={() => setActiveTab("events")}
+          >
+            Eventos ({club._count?.events || 0})
+          </Button>
+        </div>
 
-          {/* Creator Information */}
-          {club.creator && (
+        {/* Tab Content */}
+        {activeTab === "info" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Contact Information */}
             <Card>
               <CardHeader>
-                <CardTitle>Información del Creador</CardTitle>
+                <CardTitle>Información de Contacto</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Nombre
+                    Dirección
                   </p>
-                  <p>{club.creator.name}</p>
+                  <p>{club.address}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Email
-                  </p>
-                  <p>{club.creator.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Fecha de Creación
-                  </p>
-                  <p>{new Date(club.createdAt).toLocaleDateString("es-ES")}</p>
-                </div>
+                {club.phone && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Teléfono
+                    </p>
+                    <p>{club.phone}</p>
+                  </div>
+                )}
+                {club.email && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Email
+                    </p>
+                    <a
+                      href={`mailto:${club.email}`}
+                      className="text-primary hover:underline"
+                    >
+                      {club.email}
+                    </a>
+                  </div>
+                )}
+                {club.website && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Sitio Web
+                    </p>
+                    <a
+                      href={club.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {club.website}
+                    </a>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-        </div>
+
+            {/* Creator Information */}
+            {club.creator && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Información del Creador</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Nombre
+                    </p>
+                    <p>{club.creator.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Email
+                    </p>
+                    <p>{club.creator.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      Fecha de Creación
+                    </p>
+                    <p>
+                      {new Date(club.createdAt).toLocaleDateString("es-ES")}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {activeTab === "events" && (
+          <div>
+            {/* Header de eventos con botón crear */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-2xl font-bold">Eventos Programados</h3>
+                <p className="text-muted-foreground">
+                  Próximas clases, torneos y quedadas
+                </p>
+              </div>
+              {canManage && (
+                <Button onClick={() => setShowCreateEventDialog(true)}>
+                  + Crear Evento
+                </Button>
+              )}
+            </div>
+
+            {/* Loading */}
+            {isLoadingEvents && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Cargando eventos...</p>
+              </div>
+            )}
+
+            {/* Lista de eventos */}
+            {!isLoadingEvents && events.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {events.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    showClubInfo={false}
+                    onJoinChange={fetchEvents}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!isLoadingEvents && events.length === 0 && (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    {canManage
+                      ? "Aún no has creado eventos para este club"
+                      : "Este club no tiene eventos programados"}
+                  </p>
+                  {canManage && (
+                    <Button onClick={() => setShowCreateEventDialog(true)}>
+                      Crear Primer Evento
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Delete Confirmation Dialog */}
@@ -316,6 +459,35 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
               {isDeleting ? "Eliminando..." : "Eliminar Club"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Event Dialog */}
+      <Dialog
+        open={showCreateEventDialog}
+        onOpenChange={setShowCreateEventDialog}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Crear Evento</DialogTitle>
+            <DialogDescription>
+              Organiza una clase, torneo o quedada en {club.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {isLoadingCourts ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Cargando pistas...</p>
+              </div>
+            ) : (
+              <EventForm
+                mode="create"
+                clubId={club.id}
+                courts={courts}
+                onSuccess={handleEventCreated}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

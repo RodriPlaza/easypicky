@@ -177,11 +177,28 @@ export default function DashboardPage() {
                 </div>
               </Button>
 
-              <Button variant="outline" disabled className="h-auto py-4">
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => router.push("/events")}
+              >
                 <div className="text-left w-full">
                   <p className="font-semibold">Ver Eventos</p>
                   <p className="text-xs text-muted-foreground">
                     Próximas clases y torneos
+                  </p>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => router.push("/my-events")}
+              >
+                <div className="text-left w-full">
+                  <p className="font-semibold">Mis Eventos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Eventos donde estás inscrito
                   </p>
                 </div>
               </Button>

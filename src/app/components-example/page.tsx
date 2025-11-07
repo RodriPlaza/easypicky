@@ -43,12 +43,34 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { RegisterForm } from "@/components/auth/RegisterForm";
+import { ProfileForm } from "@/components/profile/ProfileForm";
+import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
+import { ClubForm } from "@/components/clubs/ClubForm";
+import { ClubCard } from "@/components/clubs/ClubCard";
+import { CourtForm } from "@/components/courts/CourtForm";
+import { CourtCard } from "@/components/courts/CourtCard";
+import { EventForm } from "@/components/events/EventForm";
+import { EventCard } from "@/components/events/EventCard";
 
 export default function ComponentsExamplePage() {
   const { addToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [profileFormMode, setProfileFormMode] = useState<"edit" | "password">(
+    "edit"
+  );
+  const [clubDialogOpen, setClubDialogOpen] = useState(false);
+  const [clubFormMode, setClubFormMode] = useState<"create" | "edit">("create");
+  const [courtDialogOpen, setCourtDialogOpen] = useState(false);
+  const [courtFormMode, setCourtFormMode] = useState<"create" | "edit">(
+    "create"
+  );
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [eventFormMode, setEventFormMode] = useState<"create" | "edit">(
+    "create"
+  );
 
   // Datos de ejemplo para la tabla
   const users = [
@@ -80,6 +102,100 @@ export default function ComponentsExamplePage() {
       role: "USER",
       status: "INACTIVE",
     },
+  ];
+
+  // Mock user data para ProfileForm
+  const mockUser = {
+    id: "1",
+    name: "Juan Pérez",
+    email: "juan@test.com",
+    phone: "+34 666 123 456",
+    city: "Madrid",
+    avatar: "https://i.pravatar.cc/150?img=1",
+    duprId: "12345",
+    duprRating: 4.5,
+    role: "USER" as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Mock club data
+  const mockClub = {
+    id: "1",
+    name: "Club Pickleball Madrid",
+    description: "El mejor club de pickleball en Madrid",
+    address: "Calle Gran Vía 1",
+    city: "Madrid",
+    phone: "+34 666 777 888",
+    email: "info@clubmadrid.com",
+    website: "https://clubmadrid.com",
+    logo: "https://placehold.co/100x100/0ea5e9/white?text=CPM",
+    creatorId: "1",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    _count: {
+      memberships: 45,
+      courts: 6,
+      events: 12,
+    },
+  };
+
+  // Mock court data
+  const mockCourt = {
+    id: "1",
+    name: "Pista Central",
+    description: "Pista principal con iluminación LED y superficie profesional",
+    isActive: true,
+    clubId: "1",
+    _count: {
+      events: 8,
+      matches: 24,
+    },
+  };
+
+  // Mock event data
+  const mockEvent = {
+    id: "1",
+    title: "Torneo de Verano 2025",
+    description:
+      "Gran torneo de pickleball para todos los niveles. Premios para los ganadores y sorteos entre todos los participantes.",
+    type: "TOURNAMENT" as const,
+    visibility: "OPEN" as const,
+    status: "SCHEDULED" as const,
+    startDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // En 7 días
+    endDateTime: new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000 + 4 * 60 * 60 * 1000
+    ), // 4 horas después
+    maxParticipants: 32,
+    price: 15,
+    clubId: "1",
+    courtId: "1",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    club: {
+      id: "1",
+      name: "Club Pickleball Madrid",
+      city: "Madrid",
+      logo: "https://placehold.co/100x100/0ea5e9/white?text=CPM",
+    },
+    court: {
+      id: "1",
+      name: "Pista Central",
+    },
+    _count: {
+      participants: 18,
+      matches: 0,
+    },
+    isParticipant: false,
+    isCheckedIn: false,
+    canCheckIn: false,
+  };
+
+  // Mock courts para el EventForm
+  const mockCourtsForEvent = [
+    { id: "1", name: "Pista Central", isActive: true },
+    { id: "2", name: "Pista Norte", isActive: true },
+    { id: "3", name: "Pista Sur", isActive: false },
   ];
 
   return (
@@ -138,6 +254,293 @@ export default function ComponentsExamplePage() {
                 </div>
               </DialogContent>
             </Dialog>
+          </CardContent>
+        </Card>
+
+        {/* Formularios de Perfil */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Formularios de Perfil</CardTitle>
+            <CardDescription>
+              Formularios para editar perfil y cambiar contraseña
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setProfileFormMode("edit");
+                  setProfileDialogOpen(true);
+                }}
+              >
+                Ver Profile Form
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setProfileFormMode("password");
+                  setProfileDialogOpen(true);
+                }}
+              >
+                Ver Change Password Form
+              </Button>
+            </div>
+
+            <Dialog
+              open={profileDialogOpen}
+              onOpenChange={setProfileDialogOpen}
+            >
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {profileFormMode === "edit"
+                      ? "Editar Perfil"
+                      : "Cambiar Contraseña"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {profileFormMode === "edit"
+                      ? "Actualiza tu información personal"
+                      : "Cambia tu contraseña de acceso"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  {profileFormMode === "edit" ? (
+                    <ProfileForm user={mockUser} />
+                  ) : (
+                    <ChangePasswordForm />
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+
+        {/* Componentes de Clubes */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Componentes de Clubes</CardTitle>
+            <CardDescription>
+              Formularios y cards para gestión de clubes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setClubFormMode("create");
+                  setClubDialogOpen(true);
+                }}
+              >
+                Ver Club Form (Crear)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setClubFormMode("edit");
+                  setClubDialogOpen(true);
+                }}
+              >
+                Ver Club Form (Editar)
+              </Button>
+            </div>
+
+            <Dialog open={clubDialogOpen} onOpenChange={setClubDialogOpen}>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {clubFormMode === "create" ? "Crear Club" : "Editar Club"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {clubFormMode === "create"
+                      ? "Completa el formulario para crear un nuevo club"
+                      : "Actualiza la información del club"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <ClubForm
+                    mode={clubFormMode}
+                    club={clubFormMode === "edit" ? mockClub : undefined}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <div>
+              <h4 className="font-semibold mb-3">Club Card (Ejemplo)</h4>
+              <div className="max-w-md">
+                <ClubCard club={mockClub} membershipStatus="ACTIVE" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Componentes de Pistas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Componentes de Pistas (Courts)</CardTitle>
+            <CardDescription>
+              Formularios y cards para gestión de pistas
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setCourtFormMode("create");
+                  setCourtDialogOpen(true);
+                }}
+              >
+                Ver Court Form (Crear)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCourtFormMode("edit");
+                  setCourtDialogOpen(true);
+                }}
+              >
+                Ver Court Form (Editar)
+              </Button>
+            </div>
+
+            <Dialog open={courtDialogOpen} onOpenChange={setCourtDialogOpen}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {courtFormMode === "create"
+                      ? "Crear Pista"
+                      : "Editar Pista"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {courtFormMode === "create"
+                      ? "Completa el formulario para crear una nueva pista"
+                      : "Actualiza la información de la pista"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <CourtForm
+                    mode={courtFormMode}
+                    clubId="1"
+                    court={courtFormMode === "edit" ? mockCourt : undefined}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <div>
+              <h4 className="font-semibold mb-3">Court Card (Ejemplo)</h4>
+              <div className="max-w-md">
+                <CourtCard
+                  court={mockCourt}
+                  clubId="1"
+                  canManage={true}
+                  onEdit={(court) =>
+                    addToast({
+                      title: "Acción: Editar",
+                      description: `Editar pista: ${court.name}`,
+                      variant: "info",
+                    })
+                  }
+                  onToggleActive={(court) =>
+                    addToast({
+                      title: "Acción: Toggle Active",
+                      description: `Cambiar estado de: ${court.name}`,
+                      variant: "info",
+                    })
+                  }
+                  onDelete={(court) =>
+                    addToast({
+                      title: "Acción: Eliminar",
+                      description: `Eliminar pista: ${court.name}`,
+                      variant: "destructive",
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Componentes de Eventos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Componentes de Eventos</CardTitle>
+            <CardDescription>
+              Formularios y cards para gestión de eventos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setEventFormMode("create");
+                  setEventDialogOpen(true);
+                }}
+              >
+                Ver Event Form (Crear)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEventFormMode("edit");
+                  setEventDialogOpen(true);
+                }}
+              >
+                Ver Event Form (Editar)
+              </Button>
+            </div>
+
+            <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {eventFormMode === "create"
+                      ? "Crear Evento"
+                      : "Editar Evento"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {eventFormMode === "create"
+                      ? "Completa el formulario para crear un nuevo evento"
+                      : "Actualiza la información del evento"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <EventForm
+                    mode={eventFormMode}
+                    clubId="1"
+                    event={eventFormMode === "edit" ? mockEvent : undefined}
+                    courts={mockCourtsForEvent}
+                    onSuccess={() => {
+                      addToast({
+                        title: "Acción completada",
+                        description: `Evento ${
+                          eventFormMode === "create" ? "creado" : "actualizado"
+                        } correctamente`,
+                        variant: "success",
+                      });
+                      setEventDialogOpen(false);
+                    }}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <div>
+              <h4 className="font-semibold mb-3">Event Card (Ejemplo)</h4>
+              <div className="max-w-md">
+                <EventCard
+                  event={mockEvent}
+                  showClubInfo={true}
+                  onJoinChange={() =>
+                    addToast({
+                      title: "Acción: Cambio en inscripción",
+                      description: "Se ha actualizado tu inscripción al evento",
+                      variant: "info",
+                    })
+                  }
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
