@@ -48,9 +48,9 @@ import type {
 } from "@/types/club";
 
 interface MembersPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function MembersPage({ params }: MembersPageProps) {
@@ -58,6 +58,7 @@ export default function MembersPage({ params }: MembersPageProps) {
   const { data: session, status } = useSession();
   const { addToast } = useToast();
 
+  const [clubId, setClubId] = useState<string | null>(null);
   const [data, setData] = useState<MembersResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -78,21 +79,30 @@ export default function MembersPage({ params }: MembersPageProps) {
   >("ACTIVE");
 
   useEffect(() => {
+    // Resolver los params asíncronos
+    params.then((resolvedParams) => {
+      setClubId(resolvedParams.id);
+    });
+  }, [params]);
+
+  useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin");
       return;
     }
 
-    if (status === "authenticated") {
+    if (status === "authenticated" && clubId) {
       fetchMembers();
     }
-  }, [status, params.id]);
+  }, [status, clubId]);
 
   const fetchMembers = async () => {
+    if (!clubId) return;
+
     setIsLoading(true);
     try {
       const response = await api.get<MembersResponse>(
-        `/clubs/${params.id}/members?limit=50`
+        `/clubs/${clubId}/members?limit=50`
       );
       setData(response);
     } catch (error) {
@@ -103,7 +113,7 @@ export default function MembersPage({ params }: MembersPageProps) {
             description: "No tienes permisos para ver los miembros",
             variant: "destructive",
           });
-          router.push(`/clubs/${params.id}`);
+          router.push(`/clubs/${clubId}`);
         } else {
           addToast({
             title: "Error",
@@ -118,6 +128,8 @@ export default function MembersPage({ params }: MembersPageProps) {
   };
 
   const handleAddMember = async () => {
+    if (!clubId) return;
+
     if (!newMemberUserId) {
       addToast({
         title: "Error",
@@ -129,7 +141,7 @@ export default function MembersPage({ params }: MembersPageProps) {
 
     setIsProcessing(true);
     try {
-      await api.post(`/clubs/${params.id}/members`, {
+      await api.post(`/clubs/${clubId}/members`, {
         userId: newMemberUserId,
         status: newMemberStatus,
       });
@@ -158,7 +170,7 @@ export default function MembersPage({ params }: MembersPageProps) {
   };
 
   const handleUpdateMember = async () => {
-    if (!selectedMember) return;
+    if (!clubId || !selectedMember) return;
 
     setIsProcessing(true);
     try {
@@ -167,7 +179,7 @@ export default function MembersPage({ params }: MembersPageProps) {
       };
 
       await api.put(
-        `/clubs/${params.id}/members?userId=${selectedMember.userId}`,
+        `/clubs/${clubId}/members?userId=${selectedMember.userId}`,
         updateData
       );
 
@@ -194,12 +206,12 @@ export default function MembersPage({ params }: MembersPageProps) {
   };
 
   const handleDeleteMember = async () => {
-    if (!selectedMember) return;
+    if (!clubId || !selectedMember) return;
 
     setIsProcessing(true);
     try {
       await api.delete(
-        `/clubs/${params.id}/members?userId=${selectedMember.userId}`
+        `/clubs/${clubId}/members?userId=${selectedMember.userId}`
       );
 
       addToast({
@@ -256,7 +268,7 @@ export default function MembersPage({ params }: MembersPageProps) {
     );
   }
 
-  if (!session || !data) {
+  if (!session || !data || !clubId) {
     return null;
   }
 
@@ -269,7 +281,7 @@ export default function MembersPage({ params }: MembersPageProps) {
             <Link href="/dashboard">
               <h1 className="text-2xl font-bold cursor-pointer">EasyPicky</h1>
             </Link>
-            <Link href={`/clubs/${params.id}`}>
+            <Link href={`/clubs/${clubId}`}>
               <Button variant="outline">Volver al Club</Button>
             </Link>
           </div>

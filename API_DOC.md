@@ -474,6 +474,263 @@ Authorization: Bearer <jwt_token>
 
 ---
 
+### Obtener Perfil Usuario (GET /users/profile)
+
+**GET** `/users/profile`
+
+Obtiene la información completa del usuario autenticado.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "user": {
+    "id": "clp1234567890",
+    "email": "test@example.com",
+    "name": "Test User",
+    "phone": "+34666777888",
+    "city": "Madrid",
+    "avatar": "https://example.com/avatar.jpg",
+    "duprId": "DUPR123",
+    "duprRating": 3.5,
+    "role": "USER",
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 404 - User Not Found:**
+
+```json
+{
+  "error": "User not found"
+}
+```
+
+---
+
+### Listar Membresías del Usuario
+
+**GET** `/users/memberships`
+
+Obtiene la lista de clubes donde el usuario autenticado es miembro.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+- `page`: number (default: 1) - Página a mostrar
+- `limit`: number (default: 20) - Membresías por página
+- `status`: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED" - Filtrar por estado
+
+**Response 200 - Success:**
+
+```json
+{
+  "memberships": [
+    {
+      "id": "mem1234567890",
+      "status": "ACTIVE",
+      "joinedAt": "2024-01-15T10:30:00.000Z",
+      "expiresAt": "2024-12-31T23:59:59.000Z",
+      "userId": "usr1234567890",
+      "clubId": "clp1234567890",
+      "club": {
+        "id": "clp1234567890",
+        "name": "Club Pickleball Madrid",
+        "description": "El mejor club de Madrid",
+        "city": "Madrid",
+        "logo": "https://example.com/logo.jpg",
+        "_count": {
+          "memberships": 25,
+          "events": 12,
+          "courts": 4
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "totalCount": 3,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  }
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+---
+
+### Solicitar Unirse a Club
+
+**POST** `/clubs/:id/join`
+
+Permite a un usuario autenticado solicitar membresía a un club. La solicitud se crea con estado PENDING y requiere aprobación del administrador del club.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Notas importantes:**
+
+- El usuario NO puede inscribirse a sí mismo a otros usuarios (solo a sí mismo)
+- Todas las solicitudes se crean con estado PENDING (requieren aprobación)
+- Si ya existe una membresía INACTIVE o CANCELLED, se reactiva como PENDING
+- Los creadores de clubes tienen su membresía ACTIVE automáticamente
+
+**Response 201 - Success (nueva solicitud):**
+
+```json
+{
+  "message": "Membership request submitted successfully",
+  "membership": {
+    "id": "mem1234567890",
+    "status": "PENDING",
+    "joinedAt": "2024-01-15T10:30:00.000Z",
+    "expiresAt": null,
+    "userId": "usr1234567890",
+    "clubId": "clp1234567890",
+    "user": {
+      "id": "usr1234567890",
+      "name": "John Doe",
+      "email": "john@example.com"
+    }
+  }
+}
+```
+
+**Response 200 - Success (reactivación):**
+
+```json
+{
+  "message": "Membership request resubmitted successfully",
+  "membership": {
+    "id": "mem1234567890",
+    "status": "PENDING",
+    "joinedAt": "2024-01-16T14:20:00.000Z",
+    "expiresAt": null,
+    "userId": "usr1234567890",
+    "clubId": "clp1234567890"
+  }
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Club not found"
+}
+```
+
+**Response 409 - Conflict (ya es miembro activo):**
+
+```json
+{
+  "error": "You are already a member of this club"
+}
+```
+
+**Response 409 - Conflict (solicitud pendiente):**
+
+```json
+{
+  "error": "You already have a pending membership request"
+}
+```
+
+---
+
+### Salir de un Club / Cancelar Solicitud
+
+**DELETE** `/clubs/:id/join`
+
+Permite a un usuario salir de un club o cancelar su solicitud de membresía.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Comportamiento:**
+
+- Si la membresía está en estado PENDING: se **elimina** completamente
+- Si la membresía está en estado ACTIVE: se cambia a **CANCELLED**
+- Los creadores de clubes NO pueden salir de sus propios clubes
+
+**Response 200 - Success (cancelar solicitud):**
+
+```json
+{
+  "message": "Membership request cancelled successfully"
+}
+```
+
+**Response 200 - Success (salir del club):**
+
+```json
+{
+  "message": "Successfully left the club"
+}
+```
+
+**Response 404 - Not Found (club):**
+
+```json
+{
+  "error": "Club not found"
+}
+```
+
+**Response 404 - Not Found (membresía):**
+
+```json
+{
+  "error": "You are not a member of this club"
+}
+```
+
+**Response 403 - Forbidden (creador):**
+
+```json
+{
+  "error": "Club creators cannot leave their club"
+}
+```
+
+---
+
 ## 🏢 Gestión de Clubes
 
 ### Crear Club

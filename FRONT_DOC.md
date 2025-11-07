@@ -24,6 +24,12 @@
   - ✅ Gestión de sesiones con NextAuth
   - ✅ Protección de rutas
   - ✅ Cierre de sesión
+- **Gestión de Perfil**
+  - ✅ Ver perfil de usuario
+  - ✅ Editar información personal (nombre, teléfono, ciudad)
+  - ✅ Cambiar contraseña
+  - ✅ Gestión de avatar (URL)
+  - ✅ Conectar DUPR ID
 - **Componentes Base UI (shadcn/ui)**
   - ✅ Button
   - ✅ Input
@@ -35,12 +41,15 @@
   - ✅ Table (con Caption, Header, Body, Row, Cell)
   - ✅ Dropdown Menu (con Label, Separator, Item)
   - ✅ Badge (con variantes: default, secondary, destructive, outline, success, warning, info)
+  - ✅ Textarea
 - **Páginas**
 
   - ✅ Landing page con redirección automática
   - ✅ Página de registro (`/auth/signup`)
   - ✅ Página de login (`/auth/signin`)
   - ✅ Dashboard básico (`/dashboard`)
+  - ✅ Página de perfil (`/profile`)
+  - ✅ Página "Mis Clubes" (`/my-clubs`)
   - ✅ Página de demostración de componentes (`/components-example`)
 
 - **Infraestructura**
@@ -50,8 +59,10 @@
   - ✅ React Hook Form + Zod para formularios
   - ✅ NextAuth integrado con Prisma
   - ✅ PostCSS y Autoprefixer configurados
+  - ✅ Sistema de autenticación con JWT para API
+  - ✅ Helper de API con manejo de tokens y errores
 
-  - **Gestión de Clubes**
+- **Gestión de Clubes**
   - ✅ Listado de clubes con búsqueda y filtros
   - ✅ Creación de clubes
   - ✅ Detalle de club
@@ -59,12 +70,14 @@
   - ✅ Eliminación de club (creador/admin)
   - ✅ Gestión de miembros (agregar, actualizar estado, eliminar)
   - ✅ Gestión de pistas (crear, editar, activar/desactivar, eliminar)
-  - ✅ Sistema de autenticación con JWT para API
+  - ✅ Solicitar unirse a club (usuarios regulares)
+  - ✅ Salir de club / Cancelar solicitud
+  - ✅ Ver mis clubes con filtros por estado
 
 ### 🚧 En Desarrollo
 
-- Funcionalidades del dashboard con datos reales
-- Integración completa con API backend
+- Gestión de eventos
+- Integración de datos reales en dashboard
 
 ### ❌ Pendiente
 
@@ -86,6 +99,10 @@ easy-picky/
 │   │   │   │   └── page.tsx          # Página de login
 │   │   │   └── signup/
 │   │   │       └── page.tsx          # Página de registro
+│   │   ├── profile/
+│   │   │   └── page.tsx              # Página de perfil de usuario
+│   │   ├── my-clubs/
+│   │   │   └── page.tsx              # Página "Mis Clubes"
 │   │   ├── dashboard/
 │   │   │   └── page.tsx              # Dashboard principal
 │   │   ├── components-example/
@@ -98,21 +115,24 @@ easy-picky/
 │   │           ├── page.tsx               # Detalle de club
 │   │           ├── edit/
 │   │           │   └── page.tsx           # Editar club
-│   │           │   members/
+│   │           ├── members/
 │   │           │   └── page.tsx           # Gestionar miembros
 │   │           └── courts/
-│   │               └── page.tsx
+│   │               └── page.tsx           # Gestionar pistas
 │   │
 │   ├── components/
 │   │   ├── auth/
 │   │   │   ├── LoginForm.tsx         # Formulario de login
 │   │   │   └── RegisterForm.tsx      # Formulario de registro
+│   │   ├── profile/
+│   │   │   ├── ProfileForm.tsx       # Formulario de edición de perfil
+│   │   │   └── ChangePasswordForm.tsx # Formulario de cambio de contraseña
 │   │   ├── clubs/
-│   │   │   ├── ClubForm.tsx
-│   │   │   └── ClubCard.tsx
+│   │   │   ├── ClubForm.tsx          # Formulario de club
+│   │   │   └── ClubCard.tsx          # Card de club (con botón "Unirse")
 │   │   ├── courts/
-│   │   │   ├── CourtForm.tsx
-│   │   │   └── CourtCard.tsx
+│   │   │   ├── CourtForm.tsx         # Formulario de pista
+│   │   │   └── CourtCard.tsx         # Card de pista
 │   │   ├── providers/
 │   │   │   └── AuthProvider.tsx      # Provider de NextAuth
 │   │   │
@@ -120,6 +140,7 @@ easy-picky/
 │   │       ├── button.tsx
 │   │       ├── input.tsx
 │   │       ├── label.tsx
+│   │       ├── textarea.tsx
 │   │       ├── card.tsx
 │   │       ├── alert.tsx
 │   │       ├── toast.tsx
@@ -138,8 +159,9 @@ easy-picky/
 │   │   └── utils.ts                  # Utilidades (cn función)
 │   │
 │   └── types/
-│       ├── club.ts                        # Tipos TypeScript para clubes
-│       ├── court.ts
+│       ├── user.ts                   # Tipos TypeScript para usuarios
+│       ├── club.ts                   # Tipos TypeScript para clubes
+│       ├── court.ts                  # Tipos TypeScript para pistas
 │       └── next-auth.d.ts            # Types de NextAuth extendidos
 │
 ├── prisma/
@@ -732,6 +754,118 @@ import { CourtCard } from "@/components/courts/CourtCard";
 />;
 ```
 
+### 6. Componentes de Perfil (`src/components/profile/`)
+
+#### ProfileForm (`ProfileForm.tsx`)
+
+Formulario para editar la información personal del usuario.
+
+**Características:**
+
+- Validación con Zod
+- Estados de carga
+- Manejo de errores
+- Integración con API
+- Actualización parcial de campos (solo envía lo que cambió)
+
+**Campos:**
+
+- Name (requerido, mínimo 2 caracteres)
+- Email (solo lectura, no editable)
+- Phone (opcional)
+- City (opcional)
+- Avatar URL (opcional, validado como URL)
+- DUPR ID (opcional, único en el sistema)
+
+**Props:**
+
+- `user` - Objeto User con información completa
+- `onUpdate` - Callback opcional cuando se actualiza el perfil
+
+**Uso:**
+
+```tsx
+import { ProfileForm } from "@/components/profile/ProfileForm";
+
+<ProfileForm
+  user={userData}
+  onUpdate={(updatedUser) => setUser(updatedUser)}
+/>;
+```
+
+---
+
+#### ChangePasswordForm (`ChangePasswordForm.tsx`)
+
+Formulario separado para cambio seguro de contraseña.
+
+**Características:**
+
+- Validación con Zod
+- Requiere contraseña actual
+- Confirmación de nueva contraseña
+- Estados de carga
+- Reinicia formulario tras éxito
+- No disponible para cuentas de Google
+
+**Campos:**
+
+- Current Password (requerido)
+- New Password (requerido, mínimo 6 caracteres)
+- Confirm Password (requerido, debe coincidir)
+
+**Validaciones:**
+
+- La contraseña actual debe ser correcta
+- Las nuevas contraseñas deben coincidir
+- Mínimo 6 caracteres
+
+**Uso:**
+
+```tsx
+import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
+
+<ChangePasswordForm />;
+```
+
+### 7. Actualización de ClubCard
+
+#### ClubCard (`ClubCard.tsx`)
+
+**Nueva funcionalidad agregada:**
+
+**Props adicionales:**
+
+- `membershipStatus?` - Estado de membresía actual: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED" | null
+- `onMembershipChange?` - Callback cuando cambia el estado de membresía
+
+**Nuevo comportamiento:**
+
+- **Sin membresía**: Muestra botón "Unirse"
+- **ACTIVE**: Muestra badge verde "Miembro"
+- **PENDING**: Muestra badge amarillo "Pendiente"
+- **INACTIVE/CANCELLED**: Muestra botón "Volver a unirse"
+
+**Integración con API:**
+
+- `POST /clubs/:id/join` - Solicitar membresía
+- Manejo de errores con ApiError
+- Toast notifications para feedback
+
+**Uso actualizado:**
+
+```tsx
+import { ClubCard } from "@/components/clubs/ClubCard";
+
+<ClubCard
+  club={clubData}
+  membershipStatus="PENDING"
+  onMembershipChange={() => refetchMemberships()}
+/>;
+```
+
+---
+
 ---
 
 ## 📄 Páginas Implementadas
@@ -1044,6 +1178,101 @@ import { CourtCard } from "@/components/courts/CourtCard";
 - API: `/api/clubs/[id]/courts` (GET, POST)
 - API: `/api/clubs/[id]/courts/[courtId]` (GET, PUT, DELETE)
 - Validaciones del backend integradas
+
+---
+
+### 12. Página de Perfil de Usuario (`src/app/profile/page.tsx`)
+
+**Ruta:** `/profile`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Header**
+
+   - Título "Mi Perfil"
+   - Botón "Volver al Dashboard"
+
+2. **Información del Perfil**
+
+   - Formulario completo de edición (ProfileForm)
+   - Campos: nombre, email (solo lectura), teléfono, ciudad, avatar, DUPR ID
+   - Badge con rol del usuario
+   - Validación con Zod
+   - Actualización parcial de campos
+
+3. **Seguridad - Cambiar Contraseña**
+
+   - Formulario separado (ChangePasswordForm)
+   - Validación de contraseña actual
+   - Confirmación de nueva contraseña
+   - Mínimo 6 caracteres
+
+4. **Información de la Cuenta**
+   - ID de usuario
+   - Fecha de creación
+   - Última actualización
+
+**Estado:** ✅ Implementada
+
+**Componentes utilizados:**
+
+- `ProfileForm` - Edición de información personal
+- `ChangePasswordForm` - Cambio seguro de contraseña
+- `Card`, `Button`, `Badge` - Componentes UI
+
+---
+
+### 13. Página "Mis Clubes" (`src/app/my-clubs/page.tsx`)
+
+**Ruta:** `/my-clubs`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Header**
+
+   - Título "Mis Clubes"
+   - Botones: "Explorar Clubes", "Dashboard"
+
+2. **Tabs de Filtrado**
+
+   - Activos (ACTIVE)
+   - Pendientes (PENDING)
+   - Todos
+
+3. **Grid de Clubes**
+
+   - Cards con información del club
+   - Logo del club (si existe)
+   - Descripción resumida
+   - Estadísticas (miembros, pistas, eventos)
+   - Badge de estado de membresía
+   - Fecha de membresía
+   - Botones: "Ver Club", "Salir" / "Cancelar"
+
+4. **Empty State**
+   - Mensaje cuando no hay clubes
+   - Botón para explorar clubes
+
+**Funcionalidades:**
+
+- **Ver mis membresías**: Lista todos los clubes donde el usuario es miembro
+- **Filtrar por estado**: ACTIVE, PENDING, ALL
+- **Salir de club**: Modal de confirmación, cambia estado a CANCELLED
+- **Cancelar solicitud**: Elimina membresía PENDING
+- **Navegación**: Enlaces directos a cada club
+
+**Estado:** ✅ Implementada
+
+**Integraciones:**
+
+- API: `GET /users/memberships`
+- API: `DELETE /clubs/[id]/join`
+- Manejo de estados con badges coloreados
+- Modales de confirmación con Dialog
 
 ---
 
@@ -1389,26 +1618,26 @@ export function cn(...inputs) {
 
 ---
 
-### Fase 2: Gestión de Perfil (1 semana)
+### Fase 2: Gestión de Perfil (1 semana) - ✅ COMPLETADA
 
-- [ ] **Página de Perfil** (`/profile`)
+- [x] **Página de Perfil** (`/profile`) ✅
 
-  - [ ] Ver información del usuario
-  - [ ] Editar nombre, teléfono, ciudad
-  - [ ] Cambiar contraseña
-  - [ ] Subir avatar
-  - [ ] Conectar DUPR ID
+  - [x] Ver información del usuario
+  - [x] Editar nombre, teléfono, ciudad
+  - [x] Cambiar contraseña
+  - [x] Subir avatar (URL por ahora)
+  - [x] Conectar DUPR ID
 
-- [ ] **Formularios**
-  - [ ] Formulario de edición de perfil
-  - [ ] Formulario de cambio de contraseña
-  - [ ] Validación de campos
+- [x] **Formularios** ✅
+  - [x] Formulario de edición de perfil (ProfileForm)
+  - [x] Formulario de cambio de contraseña (ChangePasswordForm)
+  - [x] Validación de campos con Zod
 
 ---
 
-### Fase 3: Gestión de Clubes (2-3 semanas) - ✅ EN PROGRESO
+### Fase 3: Gestión de Clubes (2-3 semanas) - ✅ COMPLETADA
 
-#### Vista Usuario Regular
+#### Vista Usuario Regular ✅
 
 - [x] **Explorar Clubes** (`/clubs`) ✅
 
@@ -1423,16 +1652,18 @@ export function cn(...inputs) {
   - [x] Información de contacto
   - [x] Información del creador
   - [x] Estadísticas (miembros, pistas, eventos)
-  - [ ] Lista de pistas
-  - [ ] Próximos eventos
-  - [ ] Botón "Unirse"
+  - [x] Botón "Unirse" (solicitud de membresía)
+  - [ ] Lista de pistas (pendiente)
+  - [ ] Próximos eventos (pendiente)
 
-- [ ] **Mis Clubes** (`/my-clubs`)
-  - [ ] Lista de clubes donde soy miembro
-  - [ ] Estado de membresía
-  - [ ] Acciones rápidas
+- [x] **Mis Clubes** (`/my-clubs`) ✅
+  - [x] Lista de clubes donde soy miembro
+  - [x] Estado de membresía (badges coloreados)
+  - [x] Filtros por estado (Activos, Pendientes, Todos)
+  - [x] Salir de club / Cancelar solicitud
+  - [x] Estadísticas de cada club
 
-#### Vista Creador de Club
+#### Vista Creador de Club ✅
 
 - [x] **Crear Club** (`/clubs/new`) ✅
 
@@ -1467,7 +1698,7 @@ export function cn(...inputs) {
   - [ ] Gráficos de actividad
   - [ ] Accesos rápidos
 
-- [x] **Pistas** (`/clubs/[id]/courts`)
+- [x] **Pistas** (`/clubs/[id]/courts`) ✅
   - [x] Lista de pistas (activas/inactivas separadas)
   - [x] Crear pistas
   - [x] Editar pistas
@@ -2014,6 +2245,7 @@ git commit -m "docs(readme): update installation steps"
 - [x] Table
 - [x] Dropdown Menu
 - [x] Badge
+- [x] Textarea
 - [ ] Avatar
 - [ ] Skeleton
 - [ ] Tabs
@@ -2021,30 +2253,37 @@ git commit -m "docs(readme): update installation steps"
 - [ ] Checkbox
 - [ ] Radio
 - [ ] Switch
-- [ ] Textarea
 - [ ] Progress
 
 ### Perfil
 
-- [ ] Ver perfil
-- [ ] Editar perfil
-- [ ] Cambiar contraseña
-- [ ] Subir avatar
-- [ ] Conectar DUPR
+- [x] Ver perfil
+- [x] Editar perfil
+- [x] Cambiar contraseña
+- [x] Gestionar avatar (URL)
+- [x] Conectar DUPR ID
 
 ### Clubes (Usuario)
 
 - [x] Listar clubes
 - [x] Buscar clubes
 - [x] Ver detalle de club
-- [ ] Unirse a club
-- [ ] Mis clubes
+- [x] Unirse a club (solicitar membresía)
+- [x] Mis clubes
+- [x] Salir de club
+- [x] Cancelar solicitud de membresía
+- [x] Ver estado de membresía
 
 ### Clubes (Creador)
 
 - [x] Crear club
 - [x] Editar club
 - [x] Gestionar miembros
+  - [x] Ver lista de miembros
+  - [x] Agregar miembros
+  - [x] Aprobar/Rechazar solicitudes
+  - [x] Cambiar estado de membresía
+  - [x] Eliminar miembros
 - [x] Eliminar club
 - [x] Gestionar pistas
   - [x] Crear pistas

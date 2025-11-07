@@ -18,6 +18,42 @@ const updateProfileSchema = z.object({
     .optional(),
 });
 
+// GET - Obtener perfil del usuario autenticado
+export const GET = withAuth(
+  async (request: NextRequest, user: AuthenticatedUser) => {
+    try {
+      const userProfile = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          city: true,
+          avatar: true,
+          duprId: true,
+          duprRating: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      if (!userProfile) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      return NextResponse.json({ user: userProfile });
+    } catch (error) {
+      console.error("Get profile error:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
+  }
+);
+
 // PUT - Actualizar perfil del usuario autenticado
 export const PUT = withAuth(
   async (request: NextRequest, user: AuthenticatedUser) => {

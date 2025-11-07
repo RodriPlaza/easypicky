@@ -26,9 +26,9 @@ import { api, ApiError } from "@/lib/api";
 import type { Club } from "@/types/club";
 
 interface ClubDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function ClubDetailPage({ params }: ClubDetailPageProps) {
@@ -36,6 +36,7 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const { data: session } = useSession();
   const { addToast } = useToast();
 
+  const [clubId, setClubId] = useState<string | null>(null);
   const [club, setClub] = useState<Club | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -46,13 +47,24 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const canManage = isCreator || isSuperAdmin;
 
   useEffect(() => {
-    fetchClub();
-  }, [params.id]);
+    // Resolver los params asíncronos
+    params.then((resolvedParams) => {
+      setClubId(resolvedParams.id);
+    });
+  }, [params]);
+
+  useEffect(() => {
+    if (clubId) {
+      fetchClub();
+    }
+  }, [clubId]);
 
   const fetchClub = async () => {
+    if (!clubId) return;
+
     setIsLoading(true);
     try {
-      const response = await api.get<{ club: Club }>(`/clubs/${params.id}`, {
+      const response = await api.get<{ club: Club }>(`/clubs/${clubId}`, {
         requiresAuth: false,
       });
       setClub(response.club);
@@ -71,9 +83,11 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   };
 
   const handleDelete = async () => {
+    if (!clubId) return;
+
     setIsDeleting(true);
     try {
-      await api.delete(`/clubs/${params.id}`);
+      await api.delete(`/clubs/${clubId}`);
 
       addToast({
         title: "Club eliminado",

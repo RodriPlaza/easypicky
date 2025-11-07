@@ -133,7 +133,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Acciones Rápidas</CardTitle>
             <CardDescription>
-              Funcionalidades disponibles próximamente
+              Accede rápidamente a las funcionalidades principales
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -141,9 +141,35 @@ export default function DashboardPage() {
               <Button
                 variant="outline"
                 className="h-auto py-4"
+                onClick={() => router.push("/profile")}
+              >
+                <div className="text-left w-full">
+                  <p className="font-semibold">Mi Perfil</p>
+                  <p className="text-xs text-muted-foreground">
+                    Gestiona tu información personal
+                  </p>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => router.push("/my-clubs")}
+              >
+                <div className="text-left w-full">
+                  <p className="font-semibold">Mis Clubes</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ver clubes donde eres miembro
+                  </p>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
                 onClick={() => router.push("/clubs")}
               >
-                <div className="text-left">
+                <div className="text-left w-full">
                   <p className="font-semibold">Buscar Clubes</p>
                   <p className="text-xs text-muted-foreground">
                     Encuentra clubes cerca de ti
@@ -152,7 +178,7 @@ export default function DashboardPage() {
               </Button>
 
               <Button variant="outline" disabled className="h-auto py-4">
-                <div className="text-left">
+                <div className="text-left w-full">
                   <p className="font-semibold">Ver Eventos</p>
                   <p className="text-xs text-muted-foreground">
                     Próximas clases y torneos
@@ -161,7 +187,7 @@ export default function DashboardPage() {
               </Button>
 
               <Button variant="outline" disabled className="h-auto py-4">
-                <div className="text-left">
+                <div className="text-left w-full">
                   <p className="font-semibold">Mis Partidos</p>
                   <p className="text-xs text-muted-foreground">
                     Historial y estadísticas

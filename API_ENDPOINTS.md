@@ -56,6 +56,11 @@ Authorization: Bearer <jwt_token>
 
 ## 👤 User Endpoints
 
+### Get Profile
+
+**GET** `/users/profile`
+**Response:** `{ user }`
+
 ### Update Profile
 
 **PUT** `/users/profile`
@@ -71,6 +76,14 @@ Authorization: Bearer <jwt_token>
   "newPassword": "string (optional, min 6)"
 }
 ```
+
+### List User Memberships
+
+**GET** `/users/memberships?page=1&limit=20&status=ACTIVE`
+
+**Status:** `ACTIVE` | `INACTIVE` | `PENDING` | `CANCELLED`
+
+**Response:** `{ memberships, pagination }`
 
 ### List Users (SUPER_ADMIN only)
 
@@ -171,6 +184,32 @@ Authorization: Bearer <jwt_token>
 ### Remove Member
 
 **DELETE** `/clubs/:id/members?userId=:userId`
+
+---
+
+## 🤝 Join Club Endpoints
+
+### Request to Join Club
+
+**POST** `/clubs/:id/join`
+
+Allows authenticated users to request membership to a club (creates PENDING membership).
+
+**Response:** `{ message, membership }`
+
+### Leave Club / Cancel Request
+
+**DELETE** `/clubs/:id/join`
+
+Allows users to leave a club or cancel their membership request.
+
+- If status is PENDING: deletes membership completely
+- If status is ACTIVE: changes to CANCELLED
+- Club creators cannot leave their own clubs
+
+**Response:** `{ message }`
+
+---
 
 ---
 
