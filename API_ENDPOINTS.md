@@ -553,6 +553,13 @@ Allows users to leave a club or cancel their membership request.
   courtId?: string
   createdAt: string
   updatedAt: string
+  club?: {
+    id: string
+    name: string
+    city: string
+    logo?: string
+    creatorId: string
+  }
 }
 ```
 

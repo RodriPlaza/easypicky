@@ -112,8 +112,14 @@ easy-picky/
 │   │   │       └── page.tsx          # Página de registro
 │   │   ├── events/
 │   │   │   ├── page.tsx              # Listado de eventos
-│   │   │   └── nearby/
-│   │   │       └── page.tsx          # Eventos cercanos
+│   │   │   ├── nearby/
+│   │   │   │   └── page.tsx          # Eventos cercanos
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx              # Detalle de evento
+│   │   │       ├── manage/
+│   │   │       │   └── page.tsx          # Gestionar evento
+│   │   │       └── participants/
+│   │   │           └── page.tsx          # Participantes
 │   │   │
 │   │   ├── my-events/
 │   │   │   └── page.tsx              # Mis eventos
@@ -1490,6 +1496,225 @@ import { EventCard } from "@/components/events/EventCard";
 
 ---
 
+### 17. Página de Detalle de Evento (`src/app/events/[id]/page.tsx`)
+
+**Ruta:** `/events/[id]`
+
+**Protección:** ❌ No requiere autenticación (acceso público)
+
+**Secciones:**
+
+1. **Header del Evento**
+
+   - Badges dinámicos (tipo, visibilidad, estado, inscrito, check-in)
+   - Título del evento
+   - Descripción completa
+   - Botones de acción según contexto
+
+2. **Botones de Acción** (si hay sesión y está SCHEDULED)
+
+   - **No inscrito**: Botón "Inscribirse al Evento"
+   - **Inscrito**:
+     - Botón "Hacer Check-in" (si canCheckIn y no tiene check-in)
+     - Botón "Cancelar Inscripción" (rojo)
+   - **Creador/Admin**: Botón "Ver Participantes (X)"
+
+3. **Información Principal** (Grid 2 columnas)
+
+   **Columna Izquierda - Detalles:**
+
+   - **Fecha y Hora**
+
+     - Inicio (formato largo en español)
+     - Fin (formato largo en español)
+     - Duración en minutos
+
+   - **Ubicación**
+     - Club (con link a `/clubs/[id]`)
+     - Ciudad
+     - Pista (si está asignada)
+
+   **Columna Derecha - Stats:**
+
+   - **Participantes**
+
+     - Contador actual / máximo
+     - Barra de progreso visual
+
+   - **Precio**
+
+     - Monto en euros o "Gratis"
+
+   - **Partidos** (si > 0)
+     - Contador de partidos registrados
+
+4. **Modal de Confirmación**
+   - Confirmar cancelación de inscripción
+   - Botones: "No, mantener" / "Sí, cancelar"
+
+**Funcionalidades:**
+
+- Ver información completa del evento
+- Inscribirse al evento (con validaciones de visibilidad)
+- Cancelar inscripción (con modal de confirmación)
+- Hacer check-in (si está en ventana de 30 min antes del inicio)
+- Badges dinámicos según estado de participación
+- Formateo de fechas en español con capitalize
+- Cálculo automático de duración
+- Barra de progreso de participantes
+- Navegación a club y gestión (si es creador/admin)
+
+**Integraciones API:**
+
+- `GET /events/:id` - Obtener evento con info de participación
+- `POST /events/:id/join` - Inscribirse
+- `DELETE /events/:id/join` - Cancelar inscripción
+- `POST /events/:id/checkin` - Hacer check-in
+
+**Estado:** ✅ Implementada
+
+---
+
+### 18. Página de Gestión de Evento (`src/app/events/[id]/manage/page.tsx`)
+
+**Ruta:** `/events/[id]/manage`
+
+**Protección:** ⚠️ Requiere autenticación y permisos (creador del club o SUPER_ADMIN)
+
+**Secciones:**
+
+1. **Header**
+
+   - Botón "Volver al Evento"
+   - Botón "Ver Participantes (X)"
+
+2. **Editar Información**
+
+   - Card con EventForm en modo "edit"
+   - Pre-cargado con datos actuales
+   - Selección de pistas del club
+   - Guardado inmediato
+
+3. **Zona de Peligro** (Card rojo)
+   - Descripción de acción irreversible
+   - Botón "Eliminar Evento" (rojo)
+   - Modal de confirmación doble
+
+**Funcionalidades:**
+
+- Editar toda la información del evento
+- Cambiar estado (SCHEDULED, ONGOING, COMPLETED, CANCELLED)
+- Cambiar pista asignada
+- Modificar fechas, precio, límite de participantes
+- Eliminar evento con confirmación
+- Validación de permisos automática
+- Redirección si no tiene permisos
+
+**Validaciones:**
+
+- Solo creador del club o SUPER_ADMIN
+- No puede eliminar eventos ONGOING o COMPLETED
+- Validación de fechas (fin > inicio)
+- Validación de pista activa del club
+
+**Integraciones API:**
+
+- `GET /events/:id` - Obtener evento y verificar permisos
+- `GET /clubs/:clubId/courts?isActive=true` - Cargar pistas
+- `PUT /events/:id` - Actualizar evento
+- `DELETE /events/:id` - Eliminar evento
+
+**Flujo de Permisos:**
+
+1. Carga evento desde API
+2. Verifica `event.club.creatorId === session.user.id` o `session.user.role === "SUPER_ADMIN"`
+3. Si no tiene permisos → Redirect a `/events/:id` con toast de error
+4. Si tiene permisos → Muestra formulario de edición
+
+**Estado:** ✅ Implementada
+
+---
+
+### 19. Página de Participantes de Evento (`src/app/events/[id]/participants/page.tsx`)
+
+**Ruta:** `/events/[id]/participants`
+
+**Protección:** ⚠️ Requiere autenticación y permisos (creador del club o SUPER_ADMIN)
+
+**Secciones:**
+
+1. **Header**
+
+   - Título del evento
+   - Botón "Volver al Evento"
+   - Botón "Gestionar Evento"
+
+2. **Estadísticas** (3 Cards)
+
+   - Total Inscritos (X / max)
+   - Check-in Realizados (verde)
+   - Pendientes de Check-in (amarillo)
+
+3. **Filtros**
+
+   - Input de búsqueda (nombre/email)
+   - Botones de filtro:
+     - Todos
+     - Con Check-in
+     - Sin Check-in
+
+4. **Tabla de Participantes**
+
+   - Columnas:
+     - Nombre
+     - Email
+     - Ciudad
+     - DUPR Rating (badge)
+     - Fecha inscripción
+     - Check-in (badge verde/pendiente)
+     - Acciones
+   - Caption con total de resultados
+   - Paginación (20 por página)
+
+5. **Acciones por Participante**
+   - **Sin check-in**: Botón "Hacer Check-in"
+   - **Con check-in**: Botón "Deshacer Check-in"
+   - Modal de confirmación para check-in
+
+**Funcionalidades:**
+
+- Ver lista completa de participantes
+- Filtrar por estado de check-in
+- Buscar por nombre o email (búsqueda local en página actual)
+- Hacer check-in manual a participantes
+- Deshacer check-in
+- Estadísticas en tiempo real
+- Paginación con controles anterior/siguiente
+- Validación de permisos automática
+
+**Integraciones API:**
+
+- `GET /events/:id/participants?page=1&limit=20&checkedIn=true` - Lista paginada
+- `POST /events/:id/checkin` - Check-in con userId
+- `DELETE /events/:id/checkin?userId=id` - Deshacer check-in
+
+**Respuesta API incluye:**
+
+```typescript
+{
+  participants: EventParticipant[],
+  event: { id, title, maxParticipants },
+  stats: { total, checkedIn, notCheckedIn },
+  pagination: { page, limit, totalCount, totalPages, hasNext, hasPrev }
+}
+```
+
+**Estado:** ✅ Implementada
+
+**Nota:** La búsqueda es local (filtra resultados de la página actual). Para búsqueda global, se requeriría parámetro de query en el backend.
+
+---
+
 ## 🔐 Sistema de Autenticación
 
 ### Flujo de Autenticación
@@ -1683,20 +1908,130 @@ Convierte sesión de NextAuth en JWT token para autenticación de API.
 }
 ```
 
+## Tipos (`src/types/`)
+
 ### Tipos de Club (`src/types/club.ts`)
 
 Definiciones TypeScript para trabajar con clubes.
 
 **Interfaces principales:**
 
-- `Club` - Información completa del club
-- `ClubMembership` - Datos de membresía
-- `CreateClubData` - Datos para crear club
-- `UpdateClubData` - Datos para actualizar club
-- `AddMemberData` - Datos para agregar miembro
-- `UpdateMembershipData` - Datos para actualizar membresía
-- `ClubsResponse` - Respuesta del listado con paginación
-- `MembersResponse` - Respuesta del listado de miembros
+```typescript
+// Club completo con relaciones
+export interface Club {
+  id: string;
+  name: string;
+  description?: string | null;
+  address: string;
+  city: string;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logo?: string | null;
+  stripeAccountId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creatorId: string;
+  creator?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  _count?: {
+    memberships: number;
+    events: number;
+    courts: number;
+  };
+}
+
+// Membresía de club
+export interface ClubMembership {
+  id: string;
+  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
+  joinedAt: string;
+  expiresAt?: string | null;
+  userId: string;
+  clubId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    city?: string | null;
+    avatar?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Datos para crear club
+export interface CreateClubData {
+  name: string;
+  description?: string;
+  address: string;
+  city: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logo?: string;
+}
+
+// Datos para actualizar club
+export interface UpdateClubData {
+  name?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logo?: string;
+}
+
+// Datos para agregar miembro
+export interface AddMemberData {
+  userId: string;
+  status?: "ACTIVE" | "PENDING";
+  expiresAt?: string;
+}
+
+// Datos para actualizar membresía
+export interface UpdateMembershipData {
+  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
+  expiresAt?: string;
+}
+
+// Respuesta del listado de clubes
+export interface ClubsResponse {
+  clubs: Club[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta del listado de miembros
+export interface MembersResponse {
+  club: {
+    id: string;
+    name: string;
+  };
+  members: ClubMembership[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+```
+
+---
 
 ### Tipos de Court (`src/types/court.ts`)
 
@@ -1704,10 +2039,323 @@ Definiciones TypeScript para trabajar con pistas.
 
 **Interfaces principales:**
 
-- `Court` - Información completa de la pista
-- `CreateCourtData` - Datos para crear pista
-- `UpdateCourtData` - Datos para actualizar pista
-- `CourtsResponse` - Respuesta del listado con información del club
+```typescript
+// Pista completa con relaciones
+export interface Court {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  clubId: string;
+  club?: {
+    id: string;
+    name: string;
+  };
+  _count?: {
+    events: number;
+    matches: number;
+  };
+}
+
+// Datos para crear pista
+export interface CreateCourtData {
+  name: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+// Datos para actualizar pista
+export interface UpdateCourtData {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+}
+
+// Respuesta del listado de pistas
+export interface CourtsResponse {
+  club: {
+    id: string;
+    name: string;
+  };
+  courts: Court[];
+  pagination?: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+```
+
+---
+
+### Tipos de Evento (`src/types/event.ts`)
+
+Definiciones TypeScript para trabajar con eventos.
+
+**Interfaces principales:**
+
+```typescript
+// Event completo con relaciones
+export interface Event extends PrismaEvent {
+  club: {
+    id: string;
+    name: string;
+    city: string;
+    logo?: string | null;
+    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
+  };
+  court?: {
+    id: string;
+    name: string;
+  } | null;
+  _count?: {
+    participants: number;
+    matches: number;
+  };
+}
+
+// Event con información del usuario participante
+export interface EventWithParticipation extends Event {
+  isParticipant: boolean;
+  isCheckedIn: boolean;
+  canCheckIn: boolean;
+}
+
+// Datos para crear evento
+export interface CreateEventData {
+  title: string;
+  description?: string;
+  type: EventType;
+  visibility: EventVisibility;
+  startDateTime: string;
+  endDateTime: string;
+  maxParticipants?: number;
+  price?: number;
+  clubId: string;
+  courtId?: string;
+}
+
+// Datos para actualizar evento
+export interface UpdateEventData {
+  title?: string;
+  description?: string;
+  type?: EventType;
+  visibility?: EventVisibility;
+  status?: EventStatus;
+  startDateTime?: string;
+  endDateTime?: string;
+  maxParticipants?: number;
+  price?: number;
+  courtId?: string;
+}
+
+// Participante de evento
+export interface EventParticipant {
+  id: string;
+  userId: string;
+  eventId: string;
+  registeredAt: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string | null;
+    city?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Respuesta del listado de eventos
+export interface EventsResponse {
+  events: Event[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta de eventos cercanos
+export interface NearbyEventsResponse {
+  events: Event[];
+  city: string;
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta del listado de participantes
+export interface ParticipantsResponse {
+  participants: EventParticipant[];
+  event: {
+    id: string;
+    title: string;
+    maxParticipants?: number | null;
+  };
+  stats: {
+    total: number;
+    checkedIn: number;
+    notCheckedIn: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Filtros para búsqueda de eventos
+export interface EventFilters {
+  page?: number;
+  limit?: number;
+  clubId?: string;
+  type?: EventType;
+  status?: EventStatus;
+  city?: string;
+  startDate?: string;
+  endDate?: string;
+  upcoming?: boolean;
+}
+
+// Filtros para eventos cercanos
+export interface NearbyEventFilters {
+  page?: number;
+  limit?: number;
+  type?: EventType;
+  daysAhead?: number;
+  openOnly?: boolean;
+}
+```
+
+---
+
+### Tipos de Usuario (`src/types/user.ts`)
+
+Definiciones TypeScript para trabajar con usuarios.
+
+**Interfaces principales:**
+
+```typescript
+// Usuario completo
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  avatar?: string | null;
+  city?: string | null;
+  duprId?: string | null;
+  duprRating?: number | null;
+  role: "USER" | "SUPER_ADMIN";
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Datos para actualizar perfil
+export interface UpdateProfileData {
+  name?: string;
+  phone?: string;
+  city?: string;
+  avatar?: string;
+  duprId?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+// Datos para cambiar contraseña
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+```
+
+Definiciones TypeScript para trabajar con eventos.
+
+**Interfaces principales:**
+
+````typescript
+// Event completo con relaciones
+export interface Event extends PrismaEvent {
+  club: {
+    id: string;
+    name: string;
+    city: string;
+    logo?: string | null;
+    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
+  };
+  court?: {
+    id: string;
+    name: string;
+  } | null;
+  _count?: {
+    participants: number;
+    matches: number;
+  };
+}
+
+// Event con información del usuario participante
+export interface EventWithParticipation extends Event {
+  isParticipant: boolean;
+  isCheckedIn: boolean;
+  canCheckIn: boolean;
+}
+
+// Participante de evento
+export interface EventParticipant {
+  id: string;
+  userId: string;
+  eventId: string;
+  registeredAt: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string | null;
+    city?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Respuesta del listado de participantes
+export interface ParticipantsResponse {
+  participants: EventParticipant[];
+  event: {
+    id: string;
+    title: string;
+    maxParticipants?: number | null;
+  };
+  stats: {
+    total: number;
+    checkedIn: number;
+    notCheckedIn: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
 
 ---
 
@@ -1744,7 +2392,7 @@ Definidos en `src/app/globals.css`:
   --input: 214.3 31.8% 91.4%; /* Color de inputs */
   --ring: 222.2 84% 4.9%; /* Color de focus ring */
 }
-```
+````
 
 **Dark Mode:**
 
@@ -1924,7 +2572,7 @@ export function cn(...inputs) {
 
 ---
 
-### Fase 4: Gestión de Eventos (2-3 semanas) - ✅ 80% COMPLETADA
+### Fase 4: Gestión de Eventos (2-3 semanas) - ✅ COMPLETADA
 
 #### Vista Usuario Regular
 
@@ -1943,12 +2591,16 @@ export function cn(...inputs) {
   - [x] Filtros (tipo, días adelante, solo abiertos)
   - [x] Paginación
 
-- [ ] **Detalle de Evento** (`/events/[id]`)
+- [x] **Detalle de Evento** (`/events/[id]`)
 
-  - [ ] Información completa
-  - [ ] Participantes inscritos
-  - [ ] Botón "Inscribirse"
-  - [ ] Compartir evento
+  - [x] Información completa con badges dinámicos
+  - [x] Detalles de fecha, ubicación y pista
+  - [x] Estadísticas (participantes, precio, partidos)
+  - [x] Botón "Inscribirse" con validaciones
+  - [x] Botón "Hacer Check-in" (ventana 30 min antes)
+  - [x] Botón "Cancelar inscripción" con modal
+  - [x] Barra de progreso de participantes
+  - [x] Navegación al club organizador
 
 - [x] **Mis Eventos** (`/my-events`)
 
@@ -1959,8 +2611,9 @@ export function cn(...inputs) {
 
 - [x] **Inscribirse a eventos**
 - [x] **Cancelar inscripción**
+- [x] **Check-in a eventos** (en ventana de tiempo)
 
-#### Vista Creador de Club
+#### Vista Creador de Club ✅
 
 - [x] **Crear Evento** (desde página del club)
 
@@ -1971,19 +2624,35 @@ export function cn(...inputs) {
   - [x] Validación completa de fechas
   - [x] Integrado en tab "Eventos" del club
 
-- [ ] **Gestionar Evento** (`/events/[id]/manage`)
+- [x] **Gestionar Evento** (`/events/[id]/manage`)
 
-  - [ ] Editar información
-  - [ ] Ver participantes
-  - [ ] Hacer check-in manual
-  - [ ] Cambiar estado
-  - [ ] Cancelar evento
+  - [x] Editar información completa
+  - [x] Cambiar estado (SCHEDULED, ONGOING, COMPLETED, CANCELLED)
+  - [x] Modificar pista asignada
+  - [x] Actualizar fechas y configuración
+  - [x] Zona de peligro con eliminación
+  - [x] Validación de permisos (creatorId del club)
 
-- [ ] **Participantes** (`/events/[id]/participants`)
-  - [ ] Lista completa
-  - [ ] Estados de check-in
-  - [ ] Estadísticas
-  - [ ] Exportar lista
+- [x] **Participantes** (`/events/[id]/participants`)
+  - [x] Lista completa paginada
+  - [x] Estados de check-in con badges
+  - [x] Estadísticas (total, check-in, pendientes)
+  - [x] Hacer check-in manual
+  - [x] Deshacer check-in
+  - [x] Filtros por estado de check-in
+  - [x] Búsqueda por nombre/email
+  - [x] Validación de permisos
+
+**Notas de Implementación:**
+
+- ✅ Permisos verificados con `event.club.creatorId`
+- ✅ Check-in disponible 30 min antes del evento
+- ✅ Validación de visibilidad (OPEN, MEMBERS_ONLY, PRIVATE)
+- ✅ Formateo de fechas en español con capitalize
+- ✅ Badges dinámicos según contexto
+- ✅ Modales de confirmación en acciones destructivas
+- ✅ Integración completa con API
+- ✅ Responsive design en todas las páginas
 
 ---
 

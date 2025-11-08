@@ -16,6 +16,7 @@ export interface Event extends PrismaEvent {
     name: string;
     city: string;
     logo?: string | null;
+    creatorId: string; // ✅ AGREGADO
   };
   court?: {
     id: string;

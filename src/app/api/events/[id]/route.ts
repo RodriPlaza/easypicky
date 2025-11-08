@@ -60,6 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             email: true,
             website: true,
             logo: true,
+            creatorId: true,
           },
         },
         court: {
