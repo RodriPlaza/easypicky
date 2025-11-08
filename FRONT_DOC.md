@@ -3226,8 +3226,10 @@ Los eventos **solo se pueden crear desde la página del club** por los creadores
 - [x] Cancelar inscripción
 - [x] Ver mis eventos
 - [x] Filtrar mis eventos (próximos/pasados/todos)
-- [ ] Ver detalle de evento
-- [ ] Check-in en evento
+- [x] Ver detalle de evento
+- [x] Check-in en evento (ventana de 30 min antes)
+- [x] Ver barra de progreso de participantes
+- [x] Ver estadísticas de evento
 
 ### Eventos (Creador) ✅
 
@@ -3237,10 +3239,17 @@ Los eventos **solo se pueden crear desde la página del club** por los creadores
 - [x] Establecer precio
 - [x] Límite de participantes
 - [x] Ver eventos del club en tab dedicado
-- [ ] Editar evento
-- [ ] Gestionar participantes
-- [ ] Cancelar evento
-- [ ] Ver estadísticas
+- [x] Editar evento completo
+- [x] Cambiar estado del evento
+- [x] Gestionar participantes
+  - [x] Ver lista completa paginada
+  - [x] Ver estadísticas de asistencia
+  - [x] Hacer check-in manual
+  - [x] Deshacer check-in
+  - [x] Filtrar por estado de check-in
+  - [x] Buscar por nombre/email
+- [x] Eliminar evento (con validaciones)
+- [x] Ver contador de participantes en tiempo real
 
 ### Partidos
 
