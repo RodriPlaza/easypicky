@@ -88,6 +88,7 @@ model User {
   payments        Payment[]
   createdClubs    Club[] @relation("ClubCreator")
   createdMatches  Match[] @relation("MatchCreator")
+  courtReservations CourtReservation[]
   
   @@map("users")
 }
@@ -200,14 +201,41 @@ model Court {
   description String?
   isActive    Boolean @default(true)
   
+  // Configuración de horarios
+  openTime    String  @default("08:00")  // Hora de apertura (formato HH:mm)
+  closeTime   String  @default("23:00")  // Hora de cierre (formato HH:mm)
+  slotDuration Int    @default(90)       // Duración de cada slot en minutos
+  
   // Relaciones
   club        Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
   clubId      String
   
   events      Event[]
   matches     Match[]
+  reservations CourtReservation[]
   
   @@map("courts")
+}
+
+model CourtReservation {
+  id          String   @id @default(cuid())
+  startTime   DateTime
+  endTime     DateTime
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  court       Court    @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  courtId     String
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  eventId     String?
+  match       Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  matchId     String?
+  
+  @@map("court_reservations")
 }
 
 model Event {
@@ -235,6 +263,7 @@ model Event {
   participants  EventParticipant[]
   matches       Match[]
   payments      Payment[]
+  courtReservations CourtReservation[]
   
   @@map("events")
 }
@@ -272,9 +301,10 @@ model Match {
   event         Event?      @relation(fields: [eventId], references: [id])
   eventId       String?
   court         Court?      @relation(fields: [courtId], references: [id])
-  courtId       String?     // Ahora es opcional
+  courtId       String?
   
   participants  MatchParticipant[]
+  courtReservations CourtReservation[]
   
   @@map("matches")
 }

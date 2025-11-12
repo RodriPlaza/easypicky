@@ -12,6 +12,22 @@ const createCourtSchema = z.object({
     .max(100, "Court name too long"),
   description: z.string().optional(),
   isActive: z.boolean().optional().default(true),
+  openTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .optional()
+    .default("08:00"),
+  closeTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .optional()
+    .default("23:00"),
+  slotDuration: z
+    .number()
+    .min(15, "Minimum 15 minutes")
+    .max(240, "Maximum 4 hours")
+    .optional()
+    .default(90),
 });
 
 const listCourtsSchema = z.object({
@@ -99,10 +115,32 @@ export const POST = withAuth(
         );
       }
 
+      // Validar que closeTime sea mayor que openTime
+      const [openHour, openMin] = validatedData.openTime.split(":").map(Number);
+      const [closeHour, closeMin] = validatedData.closeTime
+        .split(":")
+        .map(Number);
+      const openMinutes = openHour * 60 + openMin;
+      const closeMinutes = closeHour * 60 + closeMin;
+
+      if (closeMinutes <= openMinutes) {
+        return NextResponse.json(
+          {
+            error: "Close time must be after open time",
+          },
+          { status: 400 }
+        );
+      }
+
       // Crear la pista
       const court = await prisma.court.create({
         data: {
-          ...validatedData,
+          name: validatedData.name,
+          description: validatedData.description,
+          isActive: validatedData.isActive,
+          openTime: validatedData.openTime,
+          closeTime: validatedData.closeTime,
+          slotDuration: validatedData.slotDuration,
           clubId,
         },
         include: {
@@ -132,7 +170,7 @@ export const POST = withAuth(
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: "Validation error", details: error },
+          { error: "Validation error", details: Error },
           { status: 400 }
         );
       }

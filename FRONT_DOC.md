@@ -83,10 +83,16 @@
   - ✅ Sistema de tabs en detalle de club (Información/Eventos)
   - ✅ Integración completa con API de eventos
   - ✅ Paginación y filtros avanzados
+  - **Gestión de Pistas con Horarios**
+  - ✅ Configuración de horarios de apertura/cierre
+  - ✅ Configuración de duración de slots de reserva
+  - ✅ Visualización de horario diario de pistas
+  - ✅ Sistema de reservas por slots
+  - ✅ Gestión de reservas (crear, cancelar)
+  - ✅ Botón "Ver Horario" en cards de pistas
 
 ### 🚧 En Desarrollo
 
-- ~~Gestión de eventos~~ ✅ COMPLETADA (80%)
 - Integración de datos reales en dashboard
 - Detalle completo de evento (con edición y gestión de participantes)
 
@@ -121,8 +127,18 @@ easy-picky/
 │   │   │       └── participants/
 │   │   │           └── page.tsx          # Participantes
 │   │   │
+│   │   ├── matches/
+│   │   │   ├── page.tsx              # Listado de partidos
+│   │   │   ├── new/
+│   │   │   │   └── page.tsx          # Crear partido
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx              # Detalle de partido
+│   │   │       └── edit/
+│   │   │           └── page.tsx          # Editar partido
 │   │   ├── my-events/
 │   │   │   └── page.tsx              # Mis eventos
+│   │   ├── my-matches/
+│   │   │   └── page.tsx              # Mis partidos
 │   │   ├── profile/
 │   │   │   └── page.tsx              # Página de perfil de usuario
 │   │   ├── my-clubs/
@@ -139,6 +155,14 @@ easy-picky/
 │   │           ├── page.tsx               # Detalle de club
 │   │           ├── edit/
 │   │           │   └── page.tsx           # Editar club
+│   │           ├── matches/
+│   │           │   ├── page.tsx           # Partidos de club
+│   │           │   ├── new/
+│   │           │   │   └── page.tsx       # Crear partido de club
+│   │           │   └── [matchId]/
+│   │           │       ├── page.tsx       # Detalle de partido de club
+│   │           │       └── edit/
+│   │           │           └── page.tsx   # Editar partido de club
 │   │           ├── members/
 │   │           │   └── page.tsx           # Gestionar miembros
 │   │           └── courts/
@@ -159,7 +183,8 @@ easy-picky/
 │   │   │   └── ClubCard.tsx          # Card de club (con botón "Unirse")
 │   │   ├── courts/
 │   │   │   ├── CourtForm.tsx         # Formulario de pista
-│   │   │   └── CourtCard.tsx         # Card de pista
+│   │   │   ├── CourtCard.tsx         # Card de pista
+│   │   │   └── CourtSchedule.tsx
 │   │   ├── providers/
 │   │   │   └── AuthProvider.tsx      # Provider de NextAuth
 │   │   │
@@ -715,7 +740,7 @@ import { ClubCard } from "@/components/clubs/ClubCard";
 
 #### CourtForm (`CourtForm.tsx`)
 
-Formulario reutilizable para crear y editar pistas.
+Formulario reutilizable para crear y editar pistas con configuración de horarios.
 
 **Características:**
 
@@ -724,33 +749,37 @@ Formulario reutilizable para crear y editar pistas.
 - Estados de carga
 - Manejo de errores
 - Integración con API
+- **Configuración de horarios** ✨ NUEVO
 
 **Campos:**
 
 - Name (requerido, max 100 caracteres)
 - Description (opcional, max 500 caracteres)
 - isActive (boolean, checkbox)
+- **Open Time (requerido, formato HH:mm)** ✨ NUEVO
+- **Close Time (requerido, formato HH:mm)** ✨ NUEVO
+- **Slot Duration (requerido, 15-240 minutos)** ✨ NUEVO
+
+**Validaciones:**
+
+- Close Time debe ser mayor que Open Time
+- Slot Duration debe ser múltiplo de 15 minutos
+- Formato de hora HH:mm con regex
 
 **Modos:**
 
 - `create` - Crear nueva pista
 - `edit` - Editar pista existente
 
-**Uso:**
+**Valores por defecto:**
 
-```tsx
-import { CourtForm } from "@/components/courts/CourtForm";
-
-// Crear
-<CourtForm mode="create" clubId={clubId} />
-
-// Editar
-<CourtForm mode="edit" clubId={clubId} court={courtData} />
-```
+- openTime: "08:00"
+- closeTime: "23:00"
+- slotDuration: 90 minutos
 
 #### CourtCard (`CourtCard.tsx`)
 
-Tarjeta de pista para mostrar en listados.
+Tarjeta de pista para mostrar en listados con acceso al horario.
 
 **Características:**
 
@@ -759,6 +788,8 @@ Tarjeta de pista para mostrar en listados.
 - Dropdown menu con acciones (editar, activar/desactivar, eliminar)
 - Estadísticas (eventos, partidos)
 - Opacidad reducida para pistas inactivas
+- **Botón "Ver Horario"** ✨ NUEVO
+- **Modal de horario integrado** ✨ NUEVO
 
 **Props:**
 
@@ -767,20 +798,61 @@ Tarjeta de pista para mostrar en listados.
 - `canManage` - Boolean para mostrar acciones
 - `onEdit`, `onToggleActive`, `onDelete` - Callbacks opcionales
 
+#### CourtSchedule (`CourtSchedule.tsx`)
+
+Modal interactivo para visualizar y gestionar el horario de una pista.
+
+**Características:**
+
+- Visualización de slots de tiempo configurables
+- Navegación por días (anterior/siguiente)
+- Slots dinámicos basados en openTime, closeTime y slotDuration
+- Estados visuales (Libre/Ocupado)
+- Información de reservas existentes
+- Reservar slots disponibles (si canReserve)
+- Cancelar reservas propias
+- Integración completa con API
+- Responsive design
+
+**Slots de Tiempo:**
+
+- Generados automáticamente según configuración de pista
+- Marca slots ocupados con información de:
+  - Usuario que reservó
+  - Evento asociado (si existe)
+  - Partido asociado (si existe)
+
+**Props:**
+
+- `court` - Objeto Court con configuración completa
+- `isOpen` - Boolean para controlar visibilidad del modal
+- `onClose` - Callback al cerrar
+- `canReserve` - Boolean para permitir hacer reservas (default: false)
+
+**Permisos para reservar:**
+
+- Miembros activos del club
+- Creador del club
+- SUPER_ADMIN
+
 **Uso:**
 
 ```tsx
-import { CourtCard } from "@/components/courts/CourtCard";
+import { CourtSchedule } from "@/components/courts/CourtSchedule";
 
-<CourtCard
+<CourtSchedule
   court={courtData}
-  clubId={clubId}
-  canManage={true}
-  onEdit={handleEdit}
-  onToggleActive={handleToggle}
-  onDelete={handleDelete}
+  isOpen={showSchedule}
+  onClose={() => setShowSchedule(false)}
+  canReserve={canManage}
 />;
 ```
+
+**Integración API:**
+
+- `GET /courts/:id/schedule?date=YYYY-MM-DD` - Obtener horario del día
+- `POST /courts/:id/reservations` - Crear reserva
+- `DELETE /courts/:id/reservations/:reservationId` - Cancelar reserva
 
 ### 6. Componentes de Perfil (`src/components/profile/`)
 
@@ -970,6 +1042,132 @@ import { EventCard } from "@/components/events/EventCard";
 <EventCard event={eventData} showClubInfo={false} onJoinChange={refetchEvents} />
 ```
 
+### 9. Componentes de Partidos (`src/components/matches/`)
+
+#### MatchForm (`MatchForm.tsx`)
+
+Formulario reutilizable para crear y editar partidos informales y de club.
+
+**Características:**
+
+- Validación completa con Zod
+- Modo crear/editar
+- Selector de tipo de partido (Singles/Doubles)
+- Formulario dinámico según tipo (2 o 4 participantes)
+- Equipos claramente diferenciados (Equipo 1/Equipo 2)
+- Selección de ganador por equipo (checkbox excluyente)
+- Validación de formato de score (1-5 sets)
+- Fechas de inicio/fin opcionales
+- Estados de carga y manejo de errores
+- Soporte para partidos informales y de club
+
+**Campos:**
+
+- Match Type (requerido): SINGLES o DOUBLES
+- Participantes por equipo (requeridos):
+  - Team 1: Jugador 1 (ID) + Jugador 2 (ID) si es Doubles
+  - Team 2: Jugador 1 (ID) + Jugador 2 (ID) si es Doubles
+- Ganador: Checkbox por equipo (solo uno puede ganar)
+- Score (opcional): Formato "21-19,19-21,11-9"
+- Start Time (opcional): datetime-local
+- End Time (opcional): datetime-local
+- Court ID (opcional): Solo si no está predefinido
+- Event ID (opcional): Solo si no está predefinido
+- Completed (checkbox): Marcar como completado
+
+**Validaciones:**
+
+- Singles: Solo 2 participantes
+- Doubles: Exactamente 4 participantes
+- No participantes duplicados
+- Solo un equipo puede ser ganador
+- Score debe cumplir formato regex
+- End Time > Start Time
+
+**Modos:**
+
+- `create` - Crear nuevo partido
+- `edit` - Editar partido existente
+
+**Props:**
+
+- `match?` - Partido a editar (modo edit)
+- `mode` - "create" o "edit"
+- `clubId?` - ID del club (si es partido de club)
+- `courtId?` - ID de pista predefinido
+- `eventId?` - ID de evento predefinido
+- `onSuccess?` - Callback al completar con éxito
+
+**Uso:**
+
+```tsx
+import { MatchForm } from "@/components/matches/MatchForm";
+
+// Crear partido informal
+<MatchForm mode="create" />
+
+// Crear partido de club
+<MatchForm mode="create" clubId={clubId} courtId={courtId} />
+
+// Editar partido
+<MatchForm mode="edit" match={matchData} />
+```
+
+---
+
+#### MatchCard (`MatchCard.tsx`)
+
+Tarjeta de partido para mostrar en listados.
+
+**Características:**
+
+- Muestra equipos con sus participantes
+- Badge de tipo (Singles/Doubles)
+- Badge de estado (Completado/En progreso)
+- Equipo ganador resaltado con fondo verde
+- DUPR rating de participantes (si disponible)
+- Score formateado con separador visual
+- Duración calculada en minutos
+- Información de pista y club (configurable)
+- Información de evento (configurable)
+- Botones de gestión (editar/eliminar) para creadores
+- Link dinámico según contexto (club o informal)
+
+**Props:**
+
+- `match` - Objeto Match con información completa
+- `showClubInfo?` - Mostrar info del club (default: false)
+- `showEventInfo?` - Mostrar info del evento (default: false)
+- `canManage?` - Mostrar botones de gestión (default: false)
+- `clubId?` - ID del club para construir link correcto
+- `onEdit?` - Callback al editar
+- `onDelete?` - Callback al eliminar
+
+**Uso:**
+
+```tsx
+import { MatchCard } from "@/components/matches/MatchCard";
+
+// Partido informal (listado público)
+<MatchCard match={matchData} showClubInfo={true} showEventInfo={true} />
+
+// Partido de club (desde página del club)
+<MatchCard
+  match={matchData}
+  clubId={clubId}
+  showClubInfo={false}
+  showEventInfo={true}
+/>
+
+// Con gestión (creador)
+<MatchCard
+  match={matchData}
+  canManage={true}
+  onEdit={handleEdit}
+  onDelete={handleDelete}
+/>
+```
+
 ---
 
 ## 📄 Páginas Implementadas
@@ -1058,12 +1256,12 @@ import { EventCard } from "@/components/events/EventCard";
 
 4. **Acciones Rápidas**
 
-   - Mi Perfil
-   - Mis Clubes
-   - Buscar Clubes
+   - Mi Perfil → `/profile`
+   - Mis Clubes → `/my-clubs`
+   - Buscar Clubes → `/clubs`
    - Ver Eventos → `/events`
    - Mis Eventos → `/my-events`
-   - Mis Partidos (deshabilitado)
+   - Mis Partidos → `/my-matches` ✨ (habilitado)
 
 5. **Actividad Reciente**
    - Placeholder vacío
@@ -1075,7 +1273,7 @@ import { EventCard } from "@/components/events/EventCard";
 - Integración con API para datos reales
 - Gráficos de estadísticas
 - Lista de eventos próximos
-- Acciones rápidas funcionales
+- Botón "Buscar Partidos" → `/matches`
 
 ---
 
@@ -1144,7 +1342,7 @@ import { EventCard } from "@/components/events/EventCard";
 
 **Ruta:** `/clubs/[id]`
 
-**Protección:** ❌ No requiere autenticación (acceso público)
+**Protección:** ⚠️ Requiere autenticación para ver partidos
 
 **Secciones:**
 
@@ -1152,36 +1350,49 @@ import { EventCard } from "@/components/events/EventCard";
 
    - Nombre, ciudad, logo
    - Descripción
-   - Badges con estadísticas
+   - Badges con estadísticas (miembros, pistas, eventos)
 
 2. **Sistema de Tabs**
 
-   - Tab "Información": Contacto y creador
-   - Tab "Eventos": Lista de eventos del club
+   - **Tab "Información"**: Contacto y creador
+
+     - Dirección
+     - Teléfono (si existe)
+     - Email (si existe)
+     - Website (si existe)
+     - Información del creador
+     - Fecha de creación
+
+   - **Tab "Eventos"**: Lista de eventos del club
+
      - Botón "+ Crear Evento" (solo creadores)
      - Grid de eventos con EventCard
      - Empty state cuando no hay eventos
      - Actualización automática tras crear
+     - Muestra solo eventos SCHEDULED
 
-3. **Información de Contacto** (en Tab Información)
-
-   - Dirección
-   - Teléfono (si existe)
-   - Email (si existe)
-   - Website (si existe)
-
-4. **Información del Creador** (en Tab Información)
-   - Nombre
-   - Email
-   - Fecha de creación
+   - **Tab "Partidos"**: Partidos del club ✨ NUEVO
+     - Lista de últimos 12 partidos completados
+     - Grid responsive con MatchCard
+     - Botón "Ver Todos" → `/clubs/[id]/matches`
+     - Empty state con CTA "Registrar Primer Partido" (solo creadores)
+     - Links a detalle de partido: `/clubs/[id]/matches/[matchId]`
 
 **Acciones (solo creador/admin):**
 
 - Editar información
+- Gestionar pistas
 - Gestionar miembros
 - Eliminar club (con confirmación)
 
 **Estado:** ✅ Implementada
+
+**Integración API:**
+
+- `GET /clubs/:id` - Información del club
+- `GET /events?clubId=:id&status=SCHEDULED` - Eventos del tab
+- `GET /clubs/:id/courts?isActive=true` - Pistas activas para crear eventos
+- `GET /clubs/:id/matches?limit=12&completed=true` - Partidos del tab ✨ NUEVO
 
 ---
 
@@ -1715,6 +1926,298 @@ import { EventCard } from "@/components/events/EventCard";
 
 ---
 
+### 20. Página de Listado Público de Partidos (`/matches`)
+
+**Ruta:** `/matches`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Funcionalidades:**
+
+- Listado paginado de partidos (12 por página)
+- Filtros:
+  - Tipo de partido (Singles/Doubles)
+  - Estado (Completado/En progreso)
+  - Pista ID
+  - Evento ID
+- Grid responsive (3-2-1 columnas)
+- Contador de resultados
+- Paginación con controles anterior/siguiente
+- Empty state cuando no hay resultados
+
+**Botones de navegación (si está logueado):**
+
+- "Mis Partidos" → `/my-matches`
+- "+ Registrar Partido" → `/matches/new`
+- "Dashboard" → `/dashboard`
+
+**Estado:** ✅ Implementada
+
+**Integración API:** `GET /matches?page=1&limit=12&matchType=&completed=&courtId=&eventId=`
+
+---
+
+### 21. Página Registrar Partido Informal (`/matches/new`)
+
+**Ruta:** `/matches/new`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Funcionalidades:**
+
+- Formulario completo de creación (MatchForm)
+- Selección de tipo: Singles o Doubles
+- Input de IDs de participantes
+- Campos opcionales: score, fechas, court ID, event ID
+- Validación completa con Zod
+- Alert informativo sobre partidos informales
+- Card de ayuda sobre cómo registrar participantes
+
+**Estado:** ✅ Implementada
+
+**Nota:** Los participantes deben ser usuarios registrados (se requiere ID de usuario)
+
+---
+
+### 22. Página Mis Partidos (`/my-matches`)
+
+**Ruta:** `/my-matches`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Estadísticas Generales** (4 Cards)
+
+   - Total Partidos
+   - Completados
+   - Victorias
+   - Win Rate
+
+2. **Estadísticas por Tipo** (2 Cards)
+
+   - Singles: Total, Victorias, Win Rate
+   - Doubles: Total, Victorias, Win Rate
+
+3. **Filtros**
+
+   - Tipo de Partido (Singles/Doubles)
+   - Estado (Completados/En progreso)
+
+4. **Grid de Partidos**
+
+   - Cards con información del partido
+   - Botones de gestión (editar/eliminar) si soy creador
+   - Paginación
+
+5. **Empty State**
+   - Mensaje cuando no hay partidos
+   - Botón para registrar primer partido
+
+**Funcionalidades:**
+
+- Ver historial completo de partidos
+- Estadísticas detalladas y win rate
+- Filtrar por tipo y estado
+- Editar partidos propios
+- Eliminar partidos con confirmación
+- Navegación a detalle de partido
+
+**Estado:** ✅ Implementada
+
+**Integraciones:**
+
+- API: `GET /matches?page=1&limit=12&matchType=&completed=`
+- API: `DELETE /matches/:id`
+- Estadísticas calculadas en el backend
+
+---
+
+### 23. Página Detalle de Partido Informal (`/matches/[id]`)
+
+**Ruta:** `/matches/[id]`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Header del Partido**
+
+   - Badges: tipo, estado
+   - Fecha formateada en español
+   - Botones de gestión (si soy creador)
+
+2. **Resultado** (Grid 2 columnas en desktop)
+
+   **Columna Izquierda:**
+
+   - Equipos con participantes
+   - DUPR rating de cada jugador
+   - Equipo ganador resaltado
+   - Score formateado con separadores
+
+   **Columna Derecha:**
+
+   - Información del creador
+   - Badge con inicial del nombre
+
+3. **Información del Partido** (Sidebar)
+   - Fecha de inicio
+   - Fecha de fin
+   - Duración en minutos
+   - Pista (con link al club)
+   - Evento (con link)
+   - Fecha de registro
+
+**Funcionalidades:**
+
+- Ver información completa del partido
+- Editar (si soy creador) → `/matches/:id/edit`
+- Eliminar con modal de confirmación
+- Links a pista/club y evento si existen
+
+**Estado:** ✅ Implementada
+
+---
+
+### 24. Página Editar Partido Informal (`/matches/[id]/edit`)
+
+**Ruta:** `/matches/[id]/edit`
+
+**Protección:** ⚠️ Requiere autenticación y permisos (creador)
+
+**Funcionalidades:**
+
+- Formulario pre-cargado con datos actuales
+- Validación de permisos (solo creador)
+- Actualización parcial de campos
+- Redirección automática tras guardar
+
+**Estado:** ✅ Implementada
+
+---
+
+### 25. Página Partidos del Club (`/clubs/[id]/matches`)
+
+**Ruta:** `/clubs/[id]/matches`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Funcionalidades:**
+
+- Listado paginado de partidos del club (12 por página)
+- Información del club en header
+- Filtros:
+  - Tipo de partido (Singles/Doubles)
+  - Estado (Completado/En progreso)
+  - Pista ID
+  - Evento ID
+- Grid responsive con MatchCards
+- Botón "+ Registrar Partido" (solo creadores/admin)
+- Empty state con CTA para crear primer partido
+
+**Estado:** ✅ Implementada
+
+**Integración API:** `GET /clubs/:id/matches?page=1&limit=12&matchType=&completed=&courtId=&eventId=`
+
+---
+
+### 26. Página Crear Partido de Club (`/clubs/[id]/matches/new`)
+
+**Ruta:** `/clubs/[id]/matches/new`
+
+**Protección:** ⚠️ Requiere autenticación y permisos (creador/SUPER_ADMIN)
+
+**Funcionalidades:**
+
+- Formulario completo de creación
+- Selector de pista obligatorio (solo pistas activas)
+- Validación de permisos
+- Alert informativo sobre partidos de club
+- Validación de existencia de pistas
+- Card de ayuda con requisitos
+
+**Requisitos:**
+
+- Club debe tener al menos una pista activa
+- Participantes deben ser miembros activos del club
+- Pista es obligatoria
+
+**Estado:** ✅ Implementada
+
+---
+
+### 27. Página Editar Partido de Club (`/clubs/[id]/matches/[matchId]/edit`)
+
+**Ruta:** `/clubs/[id]/matches/[matchId]/edit`
+
+**Protección:** ⚠️ Requiere autenticación y permisos (creador club/SUPER_ADMIN)
+
+**Funcionalidades:**
+
+- Formulario pre-cargado con datos actuales
+- Validación de permisos del club
+- Actualización parcial de campos
+- Redirección tras guardar
+
+**Estado:** ✅ Implementada
+
+---
+
+### 28. Página Detalle de Partido de Club (`/clubs/[id]/matches/[matchId]`)
+
+**Ruta:** `/clubs/[id]/matches/[matchId]`
+
+**Protección:** ⚠️ Requiere autenticación
+
+**Secciones:**
+
+1. **Header del Partido**
+
+   - Badge especial "Partido de Club"
+   - Badges: tipo, estado
+   - Nombre del club
+   - Fecha formateada
+   - Botones de gestión (si tiene permisos)
+
+2. **Resultado**
+
+   - Equipos con participantes y DUPR rating
+   - Equipo ganador resaltado
+   - Score formateado
+
+3. **Información del Club** (Card dedicado)
+
+   - Logo del club
+   - Nombre con link
+   - Ciudad
+   - Botón "Ver Club"
+
+4. **Creador y Info** (Sidebar)
+
+   - Datos del creador
+   - Fecha de inicio/fin
+   - Duración
+   - Pista
+   - Evento vinculado
+   - Fecha de registro
+
+5. **Acciones Rápidas** (Card en sidebar)
+   - Ver todos los partidos del club
+   - Ir al club
+   - Ir al evento (si existe)
+
+**Funcionalidades:**
+
+- Ver información completa del partido de club
+- Editar (si soy creador del club) → `/clubs/:id/matches/:matchId/edit`
+- Eliminar con modal de confirmación
+- Navegación contextual al club y evento
+
+**Estado:** ✅ Implementada
+
+---
+
 ## 🔐 Sistema de Autenticación
 
 ### Flujo de Autenticación
@@ -1907,6 +2410,555 @@ Convierte sesión de NextAuth en JWT token para autenticación de API.
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
+
+## Tipos (`src/types/`)
+
+### Tipos de Club (`src/types/club.ts`)
+
+Definiciones TypeScript para trabajar con clubes.
+
+**Interfaces principales:**
+
+```typescript
+// Club completo con relaciones
+export interface Club {
+  id: string;
+  name: string;
+  description?: string | null;
+  address: string;
+  city: string;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logo?: string | null;
+  stripeAccountId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creatorId: string;
+  creator?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  _count?: {
+    memberships: number;
+    events: number;
+    courts: number;
+  };
+}
+
+// Membresía de club
+export interface ClubMembership {
+  id: string;
+  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
+  joinedAt: string;
+  expiresAt?: string | null;
+  userId: string;
+  clubId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    city?: string | null;
+    avatar?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Datos para crear club
+export interface CreateClubData {
+  name: string;
+  description?: string;
+  address: string;
+  city: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logo?: string;
+}
+
+// Datos para actualizar club
+export interface UpdateClubData {
+  name?: string;
+  description?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  logo?: string;
+}
+
+// Datos para agregar miembro
+export interface AddMemberData {
+  userId: string;
+  status?: "ACTIVE" | "PENDING";
+  expiresAt?: string;
+}
+
+// Datos para actualizar membresía
+export interface UpdateMembershipData {
+  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
+  expiresAt?: string;
+}
+
+// Respuesta del listado de clubes
+export interface ClubsResponse {
+  clubs: Club[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta del listado de miembros
+export interface MembersResponse {
+  club: {
+    id: string;
+    name: string;
+  };
+  members: ClubMembership[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+```
+
+---
+
+### Tipos de Court (`src/types/court.ts`)
+
+Definiciones TypeScript para trabajar con pistas y reservas.
+
+**Interfaces principales:**
+
+```typescript
+// Pista completa con relaciones
+export interface Court {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  openTime: string;
+  closeTime: string;
+  slotDuration: number;
+  clubId: string;
+  club?: {
+    id: string;
+    name: string;
+  };
+  _count?: {
+    events: number;
+    matches: number;
+    reservations?: number;
+  };
+}
+
+// Datos para crear pista
+export interface CreateCourtData {
+  name: string;
+  description?: string;
+  isActive?: boolean;
+  openTime?: string;
+  closeTime?: string;
+  slotDuration?: number;
+}
+
+// Datos para actualizar pista
+export interface UpdateCourtData {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+  openTime?: string;
+  closeTime?: string;
+  slotDuration?: number;
+}
+
+// Respuesta del listado de pistas
+export interface CourtsResponse {
+  club: {
+    id: string;
+    name: string;
+  };
+  courts: Court[];
+  pagination?: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Reserva de pista
+export interface CourtReservation {
+  id: string;
+  startTime: string;
+  endTime: string;
+  courtId: string;
+  userId: string;
+  eventId?: string | null;
+  matchId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  event?: {
+    id: string;
+    title: string;
+  };
+  match?: {
+    id: string;
+    matchType: string;
+  };
+}
+
+// Slot de tiempo en el horario
+export interface TimeSlot {
+  time: string; // Formato "HH:mm"
+  isAvailable: boolean;
+  reservation?: CourtReservation;
+}
+
+// Respuesta del horario de pista
+export interface CourtScheduleResponse {
+  court: Court;
+  date: string;
+  slots: TimeSlot[];
+}
+
+// Datos para crear reserva
+export interface CreateReservationData {
+  courtId: string;
+  startTime: string; // ISO DateTime
+  endTime: string; // ISO DateTime
+}
+```
+
+---
+
+### Tipos de Evento (`src/types/event.ts`)
+
+Definiciones TypeScript para trabajar con eventos.
+
+**Interfaces principales:**
+
+```typescript
+// Event completo con relaciones
+export interface Event extends PrismaEvent {
+  club: {
+    id: string;
+    name: string;
+    city: string;
+    logo?: string | null;
+    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
+  };
+  court?: {
+    id: string;
+    name: string;
+  } | null;
+  _count?: {
+    participants: number;
+    matches: number;
+  };
+}
+
+// Event con información del usuario participante
+export interface EventWithParticipation extends Event {
+  isParticipant: boolean;
+  isCheckedIn: boolean;
+  canCheckIn: boolean;
+}
+
+// Datos para crear evento
+export interface CreateEventData {
+  title: string;
+  description?: string;
+  type: EventType;
+  visibility: EventVisibility;
+  startDateTime: string;
+  endDateTime: string;
+  maxParticipants?: number;
+  price?: number;
+  clubId: string;
+  courtId?: string;
+}
+
+// Datos para actualizar evento
+export interface UpdateEventData {
+  title?: string;
+  description?: string;
+  type?: EventType;
+  visibility?: EventVisibility;
+  status?: EventStatus;
+  startDateTime?: string;
+  endDateTime?: string;
+  maxParticipants?: number;
+  price?: number;
+  courtId?: string;
+}
+
+// Participante de evento
+export interface EventParticipant {
+  id: string;
+  userId: string;
+  eventId: string;
+  registeredAt: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string | null;
+    city?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Respuesta del listado de eventos
+export interface EventsResponse {
+  events: Event[];
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta de eventos cercanos
+export interface NearbyEventsResponse {
+  events: Event[];
+  city: string;
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Respuesta del listado de participantes
+export interface ParticipantsResponse {
+  participants: EventParticipant[];
+  event: {
+    id: string;
+    title: string;
+    maxParticipants?: number | null;
+  };
+  stats: {
+    total: number;
+    checkedIn: number;
+    notCheckedIn: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+// Filtros para búsqueda de eventos
+export interface EventFilters {
+  page?: number;
+  limit?: number;
+  clubId?: string;
+  type?: EventType;
+  status?: EventStatus;
+  city?: string;
+  startDate?: string;
+  endDate?: string;
+  upcoming?: boolean;
+}
+
+// Filtros para eventos cercanos
+export interface NearbyEventFilters {
+  page?: number;
+  limit?: number;
+  type?: EventType;
+  daysAhead?: number;
+  openOnly?: boolean;
+}
+```
+
+---
+
+### Tipos de Usuario (`src/types/user.ts`)
+
+Definiciones TypeScript para trabajar con usuarios.
+
+**Interfaces principales:**
+
+```typescript
+// Usuario completo
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  avatar?: string | null;
+  city?: string | null;
+  duprId?: string | null;
+  duprRating?: number | null;
+  role: "USER" | "SUPER_ADMIN";
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Datos para actualizar perfil
+export interface UpdateProfileData {
+  name?: string;
+  phone?: string;
+  city?: string;
+  avatar?: string;
+  duprId?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+// Datos para cambiar contraseña
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+```
+
+Definiciones TypeScript para trabajar con eventos.
+
+**Interfaces principales:**
+
+````typescript
+// Event completo con relaciones
+export interface Event extends PrismaEvent {
+  club: {
+    id: string;
+    name: string;
+    city: string;
+    logo?: string | null;
+    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
+  };
+  court?: {
+    id: string;
+    name: string;
+  } | null;
+  _count?: {
+    participants: number;
+    matches: number;
+  };
+}
+
+// Event con información del usuario participante
+export interface EventWithParticipation extends Event {
+  isParticipant: boolean;
+  isCheckedIn: boolean;
+  canCheckIn: boolean;
+}
+
+// Participante de evento
+export interface EventParticipant {
+  id: string;
+  userId: string;
+  eventId: string;
+  registeredAt: string;
+  checkedIn: boolean;
+  checkedInAt: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar?: string | null;
+    city?: string | null;
+    duprRating?: number | null;
+  };
+}
+
+// Respuesta del listado de participantes
+export interface ParticipantsResponse {
+  participants: EventParticipant[];
+  event: {
+    id: string;
+    title: string;
+    maxParticipants?: number | null;
+  };
+  stats: {
+    total: number;
+    checkedIn: number;
+    notCheckedIn: number;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    totalCount: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+---
+
+## 🎨 Estilos y Diseño
+
+### Tailwind CSS v3
+
+**Versión:** 3.4.1
+
+**Archivo de configuración:** `tailwind.config.js`
+
+**Características:**
+
+- Utility-first CSS
+- Purge automático de clases no usadas
+- Personalización mediante variables CSS
+- Soporte para dark mode
+- `@apply`, `@layer` y directivas de Tailwind
+
+### Sistema de Colores (shadcn/ui)
+
+Definidos en `src/app/globals.css`:
+
+```css
+:root {
+  --background: 210 40% 96.1%; /* Fondo gris claro */
+  --foreground: 222.2 84% 4.9%; /* Texto oscuro */
+  --primary: 222.2 47.4% 11.2%; /* Color primario */
+  --secondary: 210 40% 96.1%; /* Color secundario */
+  --muted: 210 40% 96.1%; /* Color apagado */
+  --accent: 210 40% 96.1%; /* Color de acento */
+  --destructive: 0 84.2% 60.2%; /* Color de error */
+  --border: 214.3 31.8% 91.4%; /* Color de bordes */
+  --input: 214.3 31.8% 91.4%; /* Color de inputs */
+  --ring: 222.2 84% 4.9%; /* Color de focus ring */
+}
+````
+
+**Dark Mode:**
+
+- Variables CSS preparadas en `.dark` class
+- Cambio con clase `.dark` en `<html>`
+- Configurado con `darkMode: ["class"]` en tailwind.config.js
 
 ## Tipos (`src/types/`)
 
@@ -2400,6 +3452,10 @@ Definidos en `src/app/globals.css`:
 - Cambio con clase `.dark` en `<html>`
 - Configurado con `darkMode: ["class"]` en tailwind.config.js
 
+---
+
+## Diseño:
+
 ### Responsive Design
 
 **Breakpoints de Tailwind:**
@@ -2467,7 +3523,7 @@ export function cn(...inputs) {
 - [ ] **Select** - Campos de selección
 - [ ] **Checkbox/Radio** - Opciones múltiples
 - [ ] **Switch** - Toggle on/off
-- [ ] **Textarea** - Campos de texto largo
+- [x] **Textarea** - Campos de texto largo
 - [ ] **Progress** - Barras de progreso
 
 #### Baja Prioridad
@@ -2497,7 +3553,7 @@ export function cn(...inputs) {
 
 ---
 
-### Fase 3: Gestión de Clubes (2-3 semanas) - ✅ COMPLETADA
+### Fase 3: Gestión de Clubes (2-3 semanas) - COMPLETADA 90%
 
 #### Vista Usuario Regular ✅
 
@@ -2519,6 +3575,7 @@ export function cn(...inputs) {
   - [ ] Próximos eventos (pendiente)
 
 - [x] **Mis Clubes** (`/my-clubs`) ✅
+
   - [x] Lista de clubes donde soy miembro
   - [x] Estado de membresía (badges coloreados)
   - [x] Filtros por estado (Activos, Pendientes, Todos)
@@ -2562,10 +3619,13 @@ export function cn(...inputs) {
 
 - [x] **Pistas** (`/clubs/[id]/courts`) ✅
   - [x] Lista de pistas (activas/inactivas separadas)
-  - [x] Crear pistas
-  - [x] Editar pistas
+  - [x] Crear pistas con configuración de horarios
+  - [x] Editar pistas (incluye horarios)
   - [x] Activar/desactivar pistas
   - [x] Eliminar pistas (con validaciones)
+  - [x] Ver horario diario de cada pista
+  - [x] Sistema de reservas por slots
+  - [x] Gestión de reservas (crear/cancelar)
   - [x] Stats en tiempo real
   - [x] Control de permisos
   - [x] Responsive design
@@ -2656,42 +3716,87 @@ export function cn(...inputs) {
 
 ---
 
-### Fase 5: Gestión de Partidos (2 semanas)
+### Fase 5: Gestión de Partidos (2 semanas) - ✅ COMPLETADA
 
-#### Partidos Informales
+#### Partidos Informales ✅
 
-- [ ] **Registrar Partido** (`/matches/new`)
+- [x] **Registrar Partido** (`/matches/new`)
+  - [x] Formulario completo con validación
+  - [x] Selector Singles/Doubles
+  - [x] Input de participantes por ID
+  - [x] Score opcional con validación de formato
+  - [x] Fechas y duración opcionales
+- [x] **Mis Partidos** (`/my-matches`)
+  - [x] Historial completo con paginación
+  - [x] Estadísticas generales (total, wins, win rate)
+  - [x] Estadísticas por tipo (Singles/Doubles)
+  - [x] Filtros (tipo, estado)
+  - [x] Editar/eliminar partidos propios
+- [x] **Detalle de Partido** (`/matches/[id]`)
+  - [x] Vista completa del partido
+  - [x] Equipos con DUPR rating
+  - [x] Score formateado
+  - [x] Información de creador, pista, evento
+  - [x] Botones de gestión (creador)
 
-  - [ ] Formulario de creación
-  - [ ] Selección de participantes
-  - [ ] Ingresar resultado
-  - [ ] Singles o Doubles
+#### Partidos de Club ✅
 
-- [ ] **Mis Partidos** (`/my-matches`)
+- [x] **Partidos del Club** (`/clubs/[id]/matches`)
+  - [x] Lista paginada de partidos
+  - [x] Filtros (tipo, estado, pista, evento)
+  - [x] Botón crear (creador/admin)
+  - [x] Integración con API
+- [x] **Crear Partido de Club** (`/clubs/[id]/matches/new`)
+  - [x] Formulario completo
+  - [x] Selector de pista obligatorio
+  - [x] Validación de pistas activas
+  - [x] Validación de permisos
+- [x] **Detalle de Partido de Club** (`/clubs/[id]/matches/[matchId]`)
+  - [x] Vista completa con info del club
+  - [x] Card dedicado al club
+  - [x] Acciones rápidas en sidebar
+  - [x] Navegación contextual
+- [x] **Editar Partido de Club** (`/clubs/[id]/matches/[matchId]/edit`)
+  - [x] Formulario pre-cargado
+  - [x] Validación de permisos
 
-  - [ ] Historial completo
-  - [ ] Filtros (tipo, fecha)
-  - [ ] Estadísticas personales
-  - [ ] Win rate
+#### Componentes ✅
 
-- [ ] **Detalle de Partido** (`/matches/[id]`)
-  - [ ] Información completa
-  - [ ] Participantes y equipos
-  - [ ] Resultado
-  - [ ] Editar/eliminar (si soy creador)
+- [x] **MatchForm** - Formulario reutilizable
+- [x] **MatchCard** - Card para listados
 
-#### Partidos de Club
+#### Integraciones ✅
 
-- [ ] **Partidos del Club** (`/clubs/[id]/matches`)
+- [x] Tab "Partidos" en detalle de club
+- [x] Botón "Mis Partidos" habilitado en Dashboard
+- [x] Página de listado público (`/matches`)
+- [x] Sistema completo de permisos
+- [x] Validaciones de score y participantes
+- [x] Estadísticas y win rate
 
-  - [ ] Lista de partidos
-  - [ ] Filtros (pista, fecha, tipo)
-  - [ ] Estadísticas del club
+#### Características Implementadas ✅
 
-- [ ] **Crear Partido de Club** (`/clubs/[id]/matches/new`)
-  - [ ] Selección de pista obligatoria
-  - [ ] Solo miembros activos
-  - [ ] Vincular a evento (opcional)
+- ✅ Partidos Singles (1vs1) y Doubles (2vs2)
+- ✅ Selección de ganador por equipo
+- ✅ Score con formato validado (1-5 sets)
+- ✅ Cálculo automático de duración
+- ✅ Estadísticas por tipo de partido
+- ✅ Win rate calculado
+- ✅ Paginación en todos los listados
+- ✅ Filtros avanzados
+- ✅ Modales de confirmación
+- ✅ Empty states
+- ✅ Links contextuales según tipo de partido
+- ✅ Integración completa con API
+
+**Pendiente (mejoras futuras):**
+
+- [ ] Búsqueda de usuarios por nombre/email
+- [ ] Búsqueda de miembros del club
+- [ ] Selector de ganador automático desde score
+- [ ] Gráficos de estadísticas
+- [ ] Exportar historial
+- [ ] Filtro por rango de fechas
 
 ---
 
@@ -3214,6 +4319,10 @@ Los eventos **solo se pueden crear desde la página del club** por los creadores
   - [x] Editar pistas
   - [x] Activar/desactivar
   - [x] Eliminar pistas
+  - [x] Configurar horarios de apertura/cierre
+  - [x] Configurar duración de slots
+  - [x] Ver horario de pista
+  - [x] Gestionar reservas
 - [ ] Dashboard del club
 
 ### Eventos (Usuario) ✅
@@ -3251,13 +4360,26 @@ Los eventos **solo se pueden crear desde la página del club** por los creadores
 - [x] Eliminar evento (con validaciones)
 - [x] Ver contador de participantes en tiempo real
 
-### Partidos
+### Partidos ✅
 
-- [ ] Registrar partido informal
-- [ ] Registrar partido de club
-- [ ] Ver historial
-- [ ] Ver estadísticas
-- [ ] Editar/eliminar partidos
+- [x] Registrar partido informal
+- [x] Registrar partido de club
+- [x] Ver historial de partidos
+- [x] Ver estadísticas (total, wins, win rate)
+- [x] Estadísticas por tipo (Singles/Doubles)
+- [x] Editar/eliminar partidos propios
+- [x] Ver partidos del club
+- [x] Filtros avanzados (tipo, estado, pista, evento)
+- [x] Paginación en listados
+- [x] Detalle completo de partido
+- [x] Score con validación de formato
+- [x] Cálculo de duración
+- [x] DUPR rating de participantes
+- [x] Tab de partidos en detalle de club
+- [x] Listado público de partidos
+- [x] MatchForm component (Singles/Doubles)
+- [x] MatchCard component
+- [x] Sistema de permisos (creador/admin)
 
 ### Pagos
 

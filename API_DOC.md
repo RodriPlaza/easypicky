@@ -2286,6 +2286,600 @@ Authorization: Bearer <jwt_token>
 
 ---
 
+## 📅 Gestión de Horarios y Reservas de Pistas
+
+### Obtener Horario de Pista
+
+**GET** `/courts/:id/schedule`
+
+Obtiene el horario de una pista en un día específico con los slots de disponibilidad.
+
+**Query Parameters:**
+
+- `date`: string (formato YYYY-MM-DD) - **Requerido**
+
+**Response 200 - Success:**
+
+```json
+{
+  "court": {
+    "id": "crt1234567890",
+    "name": "Pista 1",
+    "openTime": "08:00",
+    "closeTime": "23:00",
+    "slotDuration": 90,
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Central"
+    }
+  },
+  "date": "2025-11-12",
+  "slots": [
+    {
+      "time": "08:00",
+      "isAvailable": true
+    },
+    {
+      "time": "09:30",
+      "isAvailable": false,
+      "reservation": {
+        "id": "rsv1234567890",
+        "startTime": "2025-11-12T08:00:00Z",
+        "endTime": "2025-11-12T09:30:00Z",
+        "user": {
+          "id": "usr1234567890",
+          "name": "Juan Pérez",
+          "email": "juan@example.com"
+        },
+        "event": {
+          "id": "evt1234567890",
+          "title": "Torneo Mensual"
+        },
+        "match": null
+      }
+    }
+  ]
+}
+```
+
+**Response 400 - Bad Request:**
+
+```json
+{
+  "error": "Invalid date format"
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Court not found"
+}
+```
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Permisos:** Cualquier usuario autenticado
+
+---
+
+### Crear Reserva de Pista
+
+**POST** `/courts/:id/reservations`
+
+Crea una nueva reserva para una pista.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "startTime": "2025-11-12T08:00:00Z", // Requerido (ISO 8601 UTC)
+  "endTime": "2025-11-12T09:30:00Z" // Requerido (ISO 8601 UTC)
+}
+```
+
+**Validaciones:**
+
+- El usuario debe ser un miembro activo del club
+- La pista debe estar activa
+- No se puede reservar en el pasado
+- El horario debe estar dentro de `openTime` y `closeTime` de la pista
+- La duración debe ser múltiplo de `slotDuration`
+- No puede haber conflictos de tiempo con reservas existentes
+
+**Response 201 - Created:**
+
+```json
+{
+  "message": "Reservation created successfully",
+  "reservation": {
+    "id": "rsv1234567890",
+    "startTime": "2025-11-12T08:00:00Z",
+    "endTime": "2025-11-12T09:30:00Z",
+    "createdAt": "2025-11-11T15:30:00Z",
+    "user": {
+      "id": "usr1234567890",
+      "name": "Juan Pérez",
+      "email": "juan@example.com"
+    },
+    "court": {
+      "id": "crt1234567890",
+      "name": "Pista 1",
+      "club": {
+        "id": "clp1234567890",
+        "name": "Club Central"
+      }
+    }
+  }
+}
+```
+
+**Response 400 - Validation Error:**
+
+```json
+{
+  "error": "Invalid time range - must be within court operating hours"
+}
+// o
+{
+  "error": "Reservation duration must be a multiple of slot duration"
+}
+// o
+{
+  "error": "Cannot reserve court slots in the past"
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - You must be an active club member to reserve courts"
+}
+```
+
+**Response 409 - Conflict:**
+
+```json
+{
+  "error": "Time slot already reserved - conflict with existing reservation"
+}
+```
+
+**Permisos:** Miembro activo del club, creador del club, o SUPER_ADMIN
+
+---
+
+### Listar Reservas de Pista
+
+**GET** `/courts/:id/reservations`
+
+Obtiene la lista de reservas de una pista.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Query Parameters:**
+
+- `date`: string (formato YYYY-MM-DD) - Opcional - Filtrar por fecha específica
+- **Default**: Muestra solo reservas futuras
+
+**Response 200 - Success:**
+
+```json
+{
+  "court": {
+    "id": "crt1234567890",
+    "name": "Pista 1",
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Central"
+    }
+  },
+  "reservations": [
+    {
+      "id": "rsv1234567890",
+      "startTime": "2025-11-12T08:00:00Z",
+      "endTime": "2025-11-12T09:30:00Z",
+      "createdAt": "2025-11-11T15:30:00Z",
+      "user": {
+        "id": "usr1234567890",
+        "name": "Juan Pérez",
+        "email": "juan@example.com"
+      },
+      "event": {
+        "id": "evt1234567890",
+        "title": "Torneo Mensual"
+      },
+      "match": null
+    }
+  ],
+  "totalCount": 5
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Court not found"
+}
+```
+
+**Permisos:** Cualquier usuario autenticado
+
+---
+
+### Obtener Detalles de Reserva
+
+**GET** `/courts/:id/reservations/:reservationId`
+
+Obtiene información detallada de una reserva específica.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Response 200 - Success:**
+
+```json
+{
+  "reservation": {
+    "id": "rsv1234567890",
+    "startTime": "2025-11-12T08:00:00Z",
+    "endTime": "2025-11-12T09:30:00Z",
+    "createdAt": "2025-11-11T15:30:00Z",
+    "updatedAt": "2025-11-11T15:30:00Z",
+    "user": {
+      "id": "usr1234567890",
+      "name": "Juan Pérez",
+      "email": "juan@example.com"
+    },
+    "court": {
+      "id": "crt1234567890",
+      "name": "Pista 1",
+      "club": {
+        "id": "clp1234567890",
+        "name": "Club Central"
+      }
+    },
+    "event": {
+      "id": "evt1234567890",
+      "title": "Torneo Mensual",
+      "startDateTime": "2025-11-12T08:00:00Z"
+    },
+    "match": null
+  }
+}
+```
+
+**Response 400 - Bad Request:**
+
+```json
+{
+  "error": "Reservation doesn't belong to this court"
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Reservation not found"
+}
+```
+
+**Permisos:** Cualquier usuario autenticado
+
+---
+
+### Cancelar Reserva de Pista
+
+**DELETE** `/courts/:id/reservations/:reservationId`
+
+Cancela una reserva de pista existente.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+```
+
+**Permisos:**
+
+- Creador de la reserva
+- Creador del club
+- SUPER_ADMIN
+
+**Restricciones:**
+
+- No se pueden cancelar reservas pasadas (excepto admin)
+- Las reservas vinculadas a eventos/partidos solo pueden ser canceladas por el creador del club o admin
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Reservation cancelled successfully",
+  "cancelledReservation": {
+    "id": "rsv1234567890",
+    "startTime": "2025-11-12T08:00:00Z",
+    "endTime": "2025-11-12T09:30:00Z",
+    "court": {
+      "id": "crt1234567890",
+      "name": "Pista 1"
+    },
+    "club": {
+      "id": "clp1234567890",
+      "name": "Club Central"
+    }
+  }
+}
+```
+
+**Response 400 - Bad Request:**
+
+```json
+{
+  "error": "Cannot cancel past reservation"
+}
+// o
+{
+  "error": "Reservation doesn't belong to this court"
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Insufficient permissions to cancel this reservation"
+}
+// o
+{
+  "error": "Forbidden - This reservation is linked to an event or match and requires special permissions"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Reservation not found"
+}
+```
+
+---
+
+### Actualizar Reserva de Pista
+
+**PUT** `/courts/:id/reservations/:reservationId`
+
+Actualiza el horario de una reserva existente.
+
+**Headers:**
+
+```
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+
+```json
+{
+  "startTime": "2025-11-12T10:00:00Z", // Requerido (ISO 8601 UTC)
+  "endTime": "2025-11-12T11:30:00Z" // Requerido (ISO 8601 UTC)
+}
+```
+
+**Restricciones:**
+
+- No se pueden actualizar reservas vinculadas a eventos/partidos
+- Se validan conflictos de tiempo con otras reservas
+- Mismas validaciones que al crear (horario operativo, duración, etc.)
+
+**Response 200 - Success:**
+
+```json
+{
+  "message": "Reservation updated successfully",
+  "reservation": {
+    "id": "rsv1234567890",
+    "startTime": "2025-11-12T10:00:00Z",
+    "endTime": "2025-11-12T11:30:00Z",
+    "updatedAt": "2025-11-11T16:00:00Z",
+    "user": {
+      "id": "usr1234567890",
+      "name": "Juan Pérez",
+      "email": "juan@example.com"
+    },
+    "court": {
+      "id": "crt1234567890",
+      "name": "Pista 1"
+    }
+  }
+}
+```
+
+**Response 400 - Bad Request:**
+
+```json
+{
+  "error": "Cannot update reservation linked to event or match"
+}
+// o
+{
+  "error": "Invalid time range - must be within court operating hours"
+}
+```
+
+**Response 401 - Unauthorized:**
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Response 403 - Forbidden:**
+
+```json
+{
+  "error": "Forbidden - Insufficient permissions to update this reservation"
+}
+```
+
+**Response 404 - Not Found:**
+
+```json
+{
+  "error": "Reservation not found"
+}
+```
+
+**Response 409 - Conflict:**
+
+```json
+{
+  "error": "Time conflict with another reservation"
+}
+```
+
+**Permisos:** Dueño de la reserva, creador del club, o SUPER_ADMIN
+
+---
+
+## ⚠️ Validaciones y Restricciones Importantes
+
+### Horarios de Pista
+
+- `openTime` y `closeTime` deben estar en formato **HH:mm** (ej: "08:00", "23:00")
+- `slotDuration`: entre **15-240 minutos**, debe ser múltiplo de 15
+- La duración de la reserva debe ser múltiplo del `slotDuration` de la pista
+
+### Restricciones de Reserva
+
+- **No se puede reservar** slots en el pasado
+- **No se puede reservar** fuera del horario operativo de la pista (`openTime`-`closeTime`)
+- **No puede haber** reservas superpuestas en la misma pista
+- **No se pueden eliminar** pistas con reservas futuras
+- **Las reservas vinculadas** a eventos/partidos requieren permisos especiales para cancelar
+
+### Permisos de Reserva
+
+- **Crear reserva**: Miembro activo del club, creador del club, o SUPER_ADMIN
+- **Ver reservas**: Cualquier usuario autenticado
+- **Cancelar reserva**: Creador de la reserva, creador del club, o SUPER_ADMIN
+- **Actualizar reserva**: Dueño de la reserva, creador del club, o SUPER_ADMIN
+
+---
+
+## 🎯 Ejemplo de Uso
+
+```javascript
+// 1. Verificar disponibilidad de pista
+const schedule = await fetch("/api/courts/xxx/schedule?date=2025-11-12", {
+  headers: { Authorization: `Bearer ${token}` },
+}).then((r) => r.json());
+
+// 2. Crear una reserva
+const reservation = await fetch("/api/courts/xxx/reservations", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    startTime: "2025-11-12T08:00:00Z",
+    endTime: "2025-11-12T09:30:00Z",
+  }),
+}).then((r) => r.json());
+
+// 3. Listar reservas de una pista
+const reservations = await fetch("/api/courts/xxx/reservations", {
+  headers: { Authorization: `Bearer ${token}` },
+}).then((r) => r.json());
+
+// 4. Actualizar una reserva
+const updated = await fetch("/api/courts/xxx/reservations/yyy", {
+  method: "PUT",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    startTime: "2025-11-12T10:00:00Z",
+    endTime: "2025-11-12T11:30:00Z",
+  }),
+}).then((r) => r.json());
+
+// 5. Cancelar una reserva
+await fetch("/api/courts/xxx/reservations/yyy", {
+  method: "DELETE",
+  headers: { Authorization: `Bearer ${token}` },
+});
+```
+
+---
+
 ## 🎾 Gestión de Partidos (Matches)
 
 ### Tipos de Partido
@@ -3034,7 +3628,41 @@ Authorization: Bearer <jwt_token>
   name: string,
   description?: string,
   isActive: boolean,
-  clubId: string
+  openTime: string,        // Formato: "HH:mm" (ej: "08:00")
+  closeTime: string,       // Formato: "HH:mm" (ej: "23:00")
+  slotDuration: number,    // Duración en minutos
+  clubId: string,
+  createdAt: string (ISO date),
+  updatedAt: string (ISO date)
+}
+```
+
+### CourtReservation
+
+```typescript
+{
+  id: string,
+  startTime: string,       // ISO 8601 UTC
+  endTime: string,         // ISO 8601 UTC
+  courtId: string,
+  userId: string,
+  eventId?: string,
+  matchId?: string,
+  createdAt: string (ISO date),
+  updatedAt: string (ISO date),
+  user?: {
+    id: string,
+    name: string,
+    email: string
+  },
+  event?: {
+    id: string,
+    title: string
+  },
+  match?: {
+    id: string,
+    matchType: "SINGLES" | "DOUBLES"
+  }
 }
 ```
 

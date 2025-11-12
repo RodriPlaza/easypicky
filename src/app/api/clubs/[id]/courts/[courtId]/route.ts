@@ -12,6 +12,19 @@ const updateCourtSchema = z.object({
     .optional(),
   description: z.string().optional(),
   isActive: z.boolean().optional(),
+  openTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .optional(),
+  closeTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+    .optional(),
+  slotDuration: z
+    .number()
+    .min(15, "Minimum 15 minutes")
+    .max(240, "Maximum 4 hours")
+    .optional(),
 });
 
 interface RouteParams {
@@ -156,6 +169,24 @@ export async function PUT(request: NextRequest, context: RouteParams) {
       }
     }
 
+    // Validar horarios si se están actualizando
+    const finalOpenTime = validatedData.openTime || existingCourt.openTime;
+    const finalCloseTime = validatedData.closeTime || existingCourt.closeTime;
+
+    const [openHour, openMin] = finalOpenTime.split(":").map(Number);
+    const [closeHour, closeMin] = finalCloseTime.split(":").map(Number);
+    const openMinutes = openHour * 60 + openMin;
+    const closeMinutes = closeHour * 60 + closeMin;
+
+    if (closeMinutes <= openMinutes) {
+      return NextResponse.json(
+        {
+          error: "Close time must be after open time",
+        },
+        { status: 400 }
+      );
+    }
+
     // Si se está desactivando la pista, verificar eventos futuros
     if (validatedData.isActive === false && existingCourt.isActive === true) {
       const futureEvents = await prisma.event.count({
@@ -275,6 +306,7 @@ export async function DELETE(request: NextRequest, context: RouteParams) {
           select: {
             events: true,
             matches: true,
+            reservations: true,
           },
         },
       },
@@ -336,6 +368,30 @@ export async function DELETE(request: NextRequest, context: RouteParams) {
       );
     }
 
+    // Verificar que no tenga reservas futuras
+    const futureReservations = await prisma.courtReservation.count({
+      where: {
+        courtId: courtId,
+        startTime: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    if (futureReservations > 0) {
+      return NextResponse.json(
+        {
+          error: "Cannot delete court with future reservations",
+          details: {
+            futureReservations,
+            suggestion:
+              "Please cancel future reservations before deleting the court",
+          },
+        },
+        { status: 409 }
+      );
+    }
+
     // Eliminar la pista
     await prisma.court.delete({
       where: { id: courtId },
@@ -354,6 +410,7 @@ export async function DELETE(request: NextRequest, context: RouteParams) {
       stats: {
         eventsDeleted: existingCourt._count.events,
         matchesDeleted: existingCourt._count.matches,
+        reservationsDeleted: existingCourt._count.reservations,
       },
     });
   } catch (error) {

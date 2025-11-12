@@ -203,11 +203,28 @@ export default function DashboardPage() {
                 </div>
               </Button>
 
-              <Button variant="outline" disabled className="h-auto py-4">
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => router.push("/my-matches")}
+              >
                 <div className="text-left w-full">
                   <p className="font-semibold">Mis Partidos</p>
                   <p className="text-xs text-muted-foreground">
                     Historial y estadísticas
+                  </p>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto py-4"
+                onClick={() => router.push("/matches")}
+              >
+                <div className="text-left w-full">
+                  <p className="font-semibold">Buscar Partidos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Encuentra partidos cerca de ti
                   </p>
                 </div>
               </Button>

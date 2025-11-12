@@ -25,9 +25,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { api, ApiError } from "@/lib/api";
 import { EventForm } from "@/components/events/EventForm";
 import { EventCard } from "@/components/events/EventCard";
+import { MatchCard } from "@/components/matches/MatchCard";
 import type { Club } from "@/types/club";
 import type { Event } from "@/types/event";
 import type { Court } from "@/types/court";
+import type { Match } from "@/types/match";
 
 interface ClubDetailPageProps {
   params: Promise<{
@@ -35,7 +37,7 @@ interface ClubDetailPageProps {
   }>;
 }
 
-type TabType = "info" | "events";
+type TabType = "info" | "events" | "matches";
 
 export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const router = useRouter();
@@ -48,13 +50,19 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Estados para eventos
+  // Estados para tabs
   const [activeTab, setActiveTab] = useState<TabType>("info");
+
+  // Estados para eventos
   const [events, setEvents] = useState<Event[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isLoadingCourts, setIsLoadingCourts] = useState(false);
   const [showCreateEventDialog, setShowCreateEventDialog] = useState(false);
+
+  // Estados para partidos
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
 
   const isCreator = session?.user?.id === club?.creatorId;
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
@@ -81,6 +89,12 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
       }
     }
   }, [clubId, activeTab, canManage]);
+
+  useEffect(() => {
+    if (clubId && activeTab === "matches") {
+      fetchMatches();
+    }
+  }, [clubId, activeTab]);
 
   const fetchClub = async () => {
     if (!clubId) return;
@@ -140,6 +154,23 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
     }
   };
 
+  const fetchMatches = async () => {
+    if (!clubId) return;
+
+    setIsLoadingMatches(true);
+    try {
+      const response = await api.get<{ matches: Match[] }>(
+        `/clubs/${clubId}/matches?limit=12&completed=true`
+      );
+      setMatches(response.matches);
+    } catch (error) {
+      console.error("Error fetching matches:", error);
+      setMatches([]);
+    } finally {
+      setIsLoadingMatches(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!clubId) return;
 
@@ -186,6 +217,9 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
   if (!club) {
     return null;
   }
+
+  // Contar partidos (esto lo tiene el club en _count si está disponible)
+  const matchesCount = matches.length; // Temporal, idealmente viene del _count del club
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -285,9 +319,15 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
           >
             Eventos ({club._count?.events || 0})
           </Button>
+          <Button
+            variant={activeTab === "matches" ? "default" : "outline"}
+            onClick={() => setActiveTab("matches")}
+          >
+            Partidos ({matchesCount})
+          </Button>
         </div>
 
-        {/* Tab Content */}
+        {/* Tab Content: Info */}
         {activeTab === "info" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Contact Information */}
@@ -374,6 +414,7 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
           </div>
         )}
 
+        {/* Tab Content: Events */}
         {activeTab === "events" && (
           <div>
             {/* Header de eventos con botón crear */}
@@ -428,6 +469,75 @@ export default function ClubDetailPage({ params }: ClubDetailPageProps) {
                   )}
                 </CardContent>
               </Card>
+            )}
+          </div>
+        )}
+
+        {/* Tab Content: Matches */}
+        {activeTab === "matches" && (
+          <div>
+            {/* Header de partidos */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-2xl font-bold">Partidos del Club</h3>
+                <p className="text-muted-foreground">
+                  Partidos completados recientes
+                </p>
+              </div>
+              <Link href={`/clubs/${club.id}/matches`}>
+                <Button variant="outline">Ver Todos</Button>
+              </Link>
+            </div>
+
+            {/* Loading */}
+            {isLoadingMatches && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Cargando partidos...</p>
+              </div>
+            )}
+
+            {/* Lista de partidos */}
+            {!isLoadingMatches && matches.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {matches.map((match) => (
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    showClubInfo={false}
+                    showEventInfo={true}
+                    clubId={club.id}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!isLoadingMatches && matches.length === 0 && (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    {canManage
+                      ? "Aún no se han registrado partidos en este club"
+                      : "Este club no tiene partidos registrados"}
+                  </p>
+                  {canManage && (
+                    <Link href={`/clubs/${club.id}/matches/new`}>
+                      <Button>Registrar Primer Partido</Button>
+                    </Link>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Link a página completa */}
+            {!isLoadingMatches && matches.length > 0 && (
+              <div className="text-center mt-6">
+                <Link href={`/clubs/${club.id}/matches`}>
+                  <Button variant="outline">
+                    Ver todos los partidos del club →
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         )}

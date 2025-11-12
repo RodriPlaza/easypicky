@@ -51,6 +51,8 @@ import { CourtForm } from "@/components/courts/CourtForm";
 import { CourtCard } from "@/components/courts/CourtCard";
 import { EventForm } from "@/components/events/EventForm";
 import { EventCard } from "@/components/events/EventCard";
+import { MatchForm } from "@/components/matches/MatchForm";
+import { MatchCard } from "@/components/matches/MatchCard";
 
 export default function ComponentsExamplePage() {
   const { addToast } = useToast();
@@ -69,6 +71,10 @@ export default function ComponentsExamplePage() {
   );
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [eventFormMode, setEventFormMode] = useState<"create" | "edit">(
+    "create"
+  );
+  const [matchDialogOpen, setMatchDialogOpen] = useState(false);
+  const [matchFormMode, setMatchFormMode] = useState<"create" | "edit">(
     "create"
   );
 
@@ -177,6 +183,7 @@ export default function ComponentsExamplePage() {
       name: "Club Pickleball Madrid",
       city: "Madrid",
       logo: "https://placehold.co/100x100/0ea5e9/white?text=CPM",
+      creatorId: "1",
     },
     court: {
       id: "1",
@@ -197,6 +204,97 @@ export default function ComponentsExamplePage() {
     { id: "2", name: "Pista Norte", isActive: true },
     { id: "3", name: "Pista Sur", isActive: false },
   ];
+
+  const mockMatch = {
+    id: "1",
+    matchType: "DOUBLES" as const,
+    startTime: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // Hace 2 horas
+    endTime: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // Hace 1 hora
+    score: "21-19,19-21,11-9",
+    completed: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    creatorId: "1",
+    courtId: "1",
+    eventId: "1",
+    creator: {
+      id: "1",
+      name: "Juan Pérez",
+      email: "juan@test.com",
+    },
+    court: {
+      id: "1",
+      name: "Pista Central",
+      clubId: "1",
+      club: {
+        id: "1",
+        name: "Club Pickleball Madrid",
+      },
+    },
+    event: {
+      id: "1",
+      title: "Torneo de Verano 2025",
+      clubId: "1",
+    },
+    participants: [
+      {
+        id: "1",
+        userId: "user1",
+        matchId: "1",
+        team: 1,
+        isWinner: true,
+        user: {
+          id: "user1",
+          name: "Carlos López",
+          email: "carlos@test.com",
+          avatar: null,
+          duprRating: 4.5,
+        },
+      },
+      {
+        id: "2",
+        userId: "user2",
+        matchId: "1",
+        team: 1,
+        isWinner: true,
+        user: {
+          id: "user2",
+          name: "Ana Martínez",
+          email: "ana@test.com",
+          avatar: null,
+          duprRating: 4.2,
+        },
+      },
+      {
+        id: "3",
+        userId: "user3",
+        matchId: "1",
+        team: 2,
+        isWinner: false,
+        user: {
+          id: "user3",
+          name: "María García",
+          email: "maria@test.com",
+          avatar: null,
+          duprRating: 4.3,
+        },
+      },
+      {
+        id: "4",
+        userId: "user4",
+        matchId: "1",
+        team: 2,
+        isWinner: false,
+        user: {
+          id: "user4",
+          name: "Pedro Sánchez",
+          email: "pedro@test.com",
+          avatar: null,
+          duprRating: 4.0,
+        },
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -536,6 +634,98 @@ export default function ComponentsExamplePage() {
                       title: "Acción: Cambio en inscripción",
                       description: "Se ha actualizado tu inscripción al evento",
                       variant: "info",
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Componentes de Partidos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Componentes de Partidos</CardTitle>
+            <CardDescription>
+              Formularios y cards para gestión de partidos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setMatchFormMode("create");
+                  setMatchDialogOpen(true);
+                }}
+              >
+                Ver Match Form (Crear)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMatchFormMode("edit");
+                  setMatchDialogOpen(true);
+                }}
+              >
+                Ver Match Form (Editar)
+              </Button>
+            </div>
+
+            <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {matchFormMode === "create"
+                      ? "Registrar Partido"
+                      : "Editar Partido"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {matchFormMode === "create"
+                      ? "Completa el formulario para registrar un nuevo partido"
+                      : "Actualiza la información del partido"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <MatchForm
+                    mode={matchFormMode}
+                    match={matchFormMode === "edit" ? mockMatch : undefined}
+                    onSuccess={() => {
+                      addToast({
+                        title: "Acción completada",
+                        description: `Partido ${
+                          matchFormMode === "create"
+                            ? "registrado"
+                            : "actualizado"
+                        } correctamente`,
+                        variant: "success",
+                      });
+                      setMatchDialogOpen(false);
+                    }}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <div>
+              <h4 className="font-semibold mb-3">Match Card (Ejemplo)</h4>
+              <div className="max-w-md">
+                <MatchCard
+                  match={mockMatch}
+                  showClubInfo={true}
+                  showEventInfo={true}
+                  canManage={true}
+                  onEdit={(match) =>
+                    addToast({
+                      title: "Acción: Editar",
+                      description: `Editar partido ${match.matchType}`,
+                      variant: "info",
+                    })
+                  }
+                  onDelete={(match) =>
+                    addToast({
+                      title: "Acción: Eliminar",
+                      description: `Eliminar partido ${match.id}`,
+                      variant: "destructive",
                     })
                   }
                 />
