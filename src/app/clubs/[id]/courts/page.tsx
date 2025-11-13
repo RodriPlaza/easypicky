@@ -350,7 +350,7 @@ export default function ClubCourtsPage() {
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Crear Nueva Pista</DialogTitle>
             <DialogDescription>
@@ -367,7 +367,7 @@ export default function ClubCourtsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Pista</DialogTitle>
             <DialogDescription>

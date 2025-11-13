@@ -56,6 +56,16 @@ export function CourtCard({
                     Inactiva
                   </Badge>
                 )}
+                {/* Badge de reservabilidad */}
+                {court.isReservable ? (
+                  <Badge variant="info" className="text-xs">
+                    Reservable
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">
+                    Solo Eventos
+                  </Badge>
+                )}
               </CardTitle>
               {court.description && (
                 <CardDescription className="mt-2">

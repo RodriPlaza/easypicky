@@ -35,6 +35,25 @@ export function CourtSchedule({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
 
+  if (!court.isReservable) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pista No Reservable</DialogTitle>
+            <DialogDescription>
+              Esta pista no acepta reservas públicas. Solo está disponible para
+              eventos programados por el club.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end mt-4">
+            <Button onClick={onClose}>Cerrar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   useEffect(() => {
     if (isOpen) {
       loadSchedule();

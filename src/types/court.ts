@@ -5,6 +5,7 @@ export interface Court {
   name: string;
   description?: string | null;
   isActive: boolean;
+  isReservable: boolean;
   openTime: string; // Formato "HH:mm"
   closeTime: string; // Formato "HH:mm"
   slotDuration: number; // Duración en minutos
@@ -24,6 +25,7 @@ export interface CreateCourtData {
   name: string;
   description?: string;
   isActive?: boolean;
+  isReservable?: boolean;
   openTime?: string;
   closeTime?: string;
   slotDuration?: number;
@@ -33,6 +35,7 @@ export interface UpdateCourtData {
   name?: string;
   description?: string;
   isActive?: boolean;
+  isReservable?: boolean;
   openTime?: string;
   closeTime?: string;
   slotDuration?: number;

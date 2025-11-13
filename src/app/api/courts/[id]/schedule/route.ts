@@ -64,6 +64,20 @@ export const GET = withAuth(
         );
       }
 
+      // Verificar que la pista es reservable
+      if (!court.isReservable) {
+        return NextResponse.json(
+          {
+            error: "This court does not accept public reservations",
+            details: {
+              courtName: court.name,
+              suggestion: "This court is only available for club events",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
       // Parsear fecha
       const date = new Date(dateParam);
       const startOfDay = new Date(date);

@@ -74,6 +74,20 @@ export const POST = withAuth(
         );
       }
 
+      if (!court.isReservable) {
+        return NextResponse.json(
+          {
+            error: "This court does not accept public reservations",
+            details: {
+              courtName: court.name,
+              suggestion:
+                "This court is only available for club events. Contact the club administrator.",
+            },
+          },
+          { status: 400 }
+        );
+      }
+
       // Verificar que el usuario es miembro del club o es el creador
       const isClubCreator = court.club.creatorId === user.userId;
       const isSuperAdmin = user.role === "SUPER_ADMIN";

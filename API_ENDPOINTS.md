@@ -308,9 +308,23 @@ Allows users to leave a club or cancel their membership request.
 
 ```json
 {
-  "name": "string (required)",
-  "description": "string",
-  "isActive": "boolean"
+  "name": "Pista Central",
+  "description": "Pista principal del club",
+  "isActive": true,
+  "isReservable": true,
+  "openTime": "08:00",
+  "closeTime": "23:00",
+  "slotDuration": 90
+}
+```
+
+```json
+{
+  "name": "Pista VIP",
+  "description": "Solo para eventos especiales",
+  "isActive": true,
+  "isReservable": false
+  // openTime, closeTime, slotDuration no requeridos
 }
 ```
 
@@ -330,13 +344,352 @@ Allows users to leave a club or cancel their membership request.
 {
   "name": "string",
   "description": "string",
-  "isActive": "boolean"
+  "isActive": "boolean",
+  "isReservable": false
 }
 ```
 
 ### Delete Court
 
 **DELETE** `/clubs/:clubId/courts/:id`
+
+---
+
+## 🏟️ Court Endpoints
+
+### Create Court
+
+**POST** `/clubs/:id/courts` (Club creator or SUPER_ADMIN only)
+
+**Pista Reservable:**
+
+```json
+{
+  "name": "Pista Central",
+  "description": "Pista principal del club",
+  "isActive": true,
+  "isReservable": true,
+  "openTime": "08:00",
+  "closeTime": "23:00",
+  "slotDuration": 90
+}
+```
+
+**Pista Solo Eventos:**
+
+```json
+{
+  "name": "Pista VIP",
+  "description": "Solo para eventos especiales",
+  "isActive": true,
+  "isReservable": false
+  // openTime, closeTime, slotDuration no requeridos
+}
+```
+
+**Validation:**
+
+- If `isReservable: true` → `openTime`, `closeTime`, `slotDuration` are **required**
+- If `isReservable: false` → time fields are **optional** (default values used)
+
+**Response:** `{ message, court }`
+
+### List Club Courts
+
+**GET** `/clubs/:id/courts?page=1&limit=20&isActive=true`
+
+### Get Court
+
+**GET** `/clubs/:clubId/courts/:id`
+
+### Update Court
+
+**PUT** `/clubs/:clubId/courts/:id`
+
+```json
+{
+  "name": "string",
+  "description": "string",
+  "isActive": "boolean",
+  "isReservable": "boolean"
+}
+```
+
+**Important:** When changing `isReservable` from `true` to `false`:
+
+- Backend validates if there are future reservations
+- Returns **409 Conflict** if future reservations exist
+- Must cancel all future reservations first
+
+**Error Example (409):**
+
+```json
+{
+  "error": "Cannot disable reservability with existing future reservations",
+  "details": {
+    "futureReservations": 3,
+    "suggestion": "Please cancel future reservations before disabling public reservations"
+  }
+}
+```
+
+### Delete Court
+
+**DELETE** `/clubs/:clubId/courts/:id`
+
+---
+
+## 📅 Court Reservations Endpoints
+
+### Get Court Schedule
+
+**GET** `/courts/:id/schedule?date=YYYY-MM-DD`
+
+Get available and occupied time slots for a specific court on a given date.
+
+**Query Parameters:**
+
+- `date` (required): Date in format `YYYY-MM-DD`
+
+**Request Example:**
+
+```http
+GET /api/courts/cm3kx8y9z0000/schedule?date=2025-01-15
+Authorization: Bearer <jwt_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "court": {
+    "id": "cm3kx8y9z0000",
+    "name": "Pista Central",
+    "openTime": "08:00",
+    "closeTime": "23:00",
+    "slotDuration": 90,
+    "club": {
+      "id": "cm3kx8y9z0001",
+      "name": "Club Example"
+    }
+  },
+  "date": "2025-01-15",
+  "slots": [
+    {
+      "time": "08:00",
+      "isAvailable": true
+    },
+    {
+      "time": "09:30",
+      "isAvailable": false,
+      "reservation": {
+        "id": "cm3kx8y9z0002",
+        "startTime": "2025-01-15T09:30:00.000Z",
+        "endTime": "2025-01-15T11:00:00.000Z",
+        "user": {
+          "id": "cm3kx8y9z0003",
+          "name": "Juan Pérez",
+          "email": "juan@example.com"
+        }
+      }
+    },
+    {
+      "time": "11:00",
+      "isAvailable": true
+    }
+  ]
+}
+```
+
+**Error Response - Court Not Reservable (400):**
+
+```json
+{
+  "error": "This court does not accept public reservations",
+  "details": {
+    "courtName": "Pista VIP",
+    "suggestion": "This court is only available for club events"
+  }
+}
+```
+
+**Validation:**
+
+- ✅ Court must have `isReservable: true`
+- ✅ User must be authenticated
+
+**Notes:**
+
+- Slots are generated based on `openTime`, `closeTime`, and `slotDuration`
+- Occupied slots include reservation details (user, event, match if applicable)
+
+---
+
+### Create Reservation
+
+**POST** `/courts/:id/reservations`
+
+Create a new reservation for a specific time slot.
+
+**Request Body:**
+
+```json
+{
+  "startTime": "2025-01-15T09:30:00.000Z",
+  "endTime": "2025-01-15T11:00:00.000Z"
+}
+```
+
+**Request Example:**
+
+```http
+POST /api/courts/cm3kx8y9z0000/reservations
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "startTime": "2025-01-15T09:30:00.000Z",
+  "endTime": "2025-01-15T11:00:00.000Z"
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "message": "Reservation created successfully",
+  "reservation": {
+    "id": "cm3kx8y9z0007",
+    "startTime": "2025-01-15T09:30:00.000Z",
+    "endTime": "2025-01-15T11:00:00.000Z",
+    "courtId": "cm3kx8y9z0000",
+    "userId": "cm3kx8y9z0003",
+    "createdAt": "2025-01-14T10:30:00.000Z",
+    "court": {
+      "id": "cm3kx8y9z0000",
+      "name": "Pista Central",
+      "club": {
+        "id": "cm3kx8y9z0001",
+        "name": "Club Example"
+      }
+    }
+  }
+}
+```
+
+**Error Response - Court Not Reservable (400):**
+
+```json
+{
+  "error": "This court does not accept public reservations",
+  "details": {
+    "courtName": "Pista VIP",
+    "suggestion": "This court is only available for club events. Contact the club administrator."
+  }
+}
+```
+
+**Validation:**
+
+- ✅ Court must have `isReservable: true`
+- ✅ Court must be active (`isActive: true`)
+- ✅ User must be an active member of the club, club creator, or SUPER_ADMIN
+- ✅ Time slot must be available (no overlapping reservations)
+- ✅ Reservation must be within court operating hours
+- ✅ Duration must match court's `slotDuration`
+- ✅ `endTime` must be after `startTime`
+
+**Permissions:**
+
+- ✅ Active members of the club (`status: ACTIVE`)
+- ✅ Club creator
+- ✅ SUPER_ADMIN
+- ❌ Users with INACTIVE, PENDING, or CANCELLED membership
+
+---
+
+### Cancel Reservation
+
+**DELETE** `/courts/:id/reservations/:reservationId`
+
+Cancel an existing reservation.
+
+**Request Example:**
+
+```http
+DELETE /api/courts/cm3kx8y9z0000/reservations/cm3kx8y9z0007
+Authorization: Bearer <jwt_token>
+```
+
+**Success Response (200):**
+
+```json
+{
+  "message": "Reservation cancelled successfully"
+}
+```
+
+**Permissions:**
+
+- ✅ Reservation creator (own reservations)
+- ✅ Club creator (any reservation in their club)
+- ✅ SUPER_ADMIN (any reservation)
+
+**Restrictions:**
+
+- ❌ Cannot cancel reservations that have already started
+- ❌ Cannot cancel past reservations
+
+---
+
+## ⚠️ Important Notes - Court Reservations
+
+### Court Requirements
+
+| Field          | Required When        | Description                                                 |
+| -------------- | -------------------- | ----------------------------------------------------------- |
+| `isReservable` | Always               | `true` = accepts public reservations, `false` = events only |
+| `openTime`     | `isReservable: true` | Court opening time (HH:mm format)                           |
+| `closeTime`    | `isReservable: true` | Court closing time (HH:mm format)                           |
+| `slotDuration` | `isReservable: true` | Reservation slot duration in minutes (15-240)               |
+
+### Changing Court to Non-Reservable
+
+When updating a court from `isReservable: true` to `isReservable: false`:
+
+1. Backend checks for future reservations
+2. If future reservations exist → **409 Conflict** error
+3. Must cancel all future reservations first
+4. Then can change to non-reservable
+
+### Validation Summary
+
+**Court Validation:**
+
+- Court must have `isReservable: true`
+- Court must be active
+- Operating hours must be defined
+
+**User Validation:**
+
+- Must be authenticated
+- Must be active member, club creator, or SUPER_ADMIN
+
+**Time Validation:**
+
+- Within court operating hours
+- Matches slot duration
+- No overlapping reservations
+- Future time only
+
+### Error Codes
+
+| Status | Error                                                            | When                                                |
+| ------ | ---------------------------------------------------------------- | --------------------------------------------------- |
+| 400    | "This court does not accept public reservations"                 | `isReservable: false`                               |
+| 400    | "Time fields are required when court is reservable"              | Creating reservable court without times             |
+| 400    | "Close time must be after open time"                             | Invalid time range                                  |
+| 409    | "Cannot disable reservability with existing future reservations" | Changing to non-reservable with active reservations |
 
 ---
 
@@ -576,6 +929,24 @@ Allows users to leave a club or cancel their membership request.
   creatorId: string
   courtId?: string
   eventId?: string
+  createdAt: string
+  updatedAt: string
+}
+```
+
+### Court
+
+```typescript
+{
+  id: string
+  name: string
+  description?: string
+  isActive: boolean
+  isReservable: boolean // ✨ NUEVO
+  openTime: string
+  closeTime: string
+  slotDuration: number
+  clubId: string
   createdAt: string
   updatedAt: string
 }

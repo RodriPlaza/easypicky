@@ -749,19 +749,23 @@ Formulario reutilizable para crear y editar pistas con configuración de horario
 - Estados de carga
 - Manejo de errores
 - Integración con API
-- **Configuración de horarios** ✨ NUEVO
+- Configuración de horarios ✨ NUEVO
 
 **Campos:**
 
 - Name (requerido, max 100 caracteres)
 - Description (opcional, max 500 caracteres)
 - isActive (boolean, checkbox)
-- **Open Time (requerido, formato HH:mm)** ✨ NUEVO
-- **Close Time (requerido, formato HH:mm)** ✨ NUEVO
-- **Slot Duration (requerido, 15-240 minutos)** ✨ NUEVO
+- isReservable (checkbox)
+- Open Time (requerido, formato HH:mm)
+- Close Time (requerido, formato HH:mm)
+- Slot Duration (requerido, 15-240 minutos)
 
 **Validaciones:**
 
+- isReservable true → Horarios son obligatorios
+- isReservable false → Horarios son opcionales
+- Validación condicional con Zod refine
 - Close Time debe ser mayor que Open Time
 - Slot Duration debe ser múltiplo de 15 minutos
 - Formato de hora HH:mm con regex
@@ -785,11 +789,12 @@ Tarjeta de pista para mostrar en listados con acceso al horario.
 
 - Muestra información de la pista
 - Badge de estado (Activa/Inactiva)
+- Badge de reservabilidad (Reservable/Solo Eventos)
 - Dropdown menu con acciones (editar, activar/desactivar, eliminar)
 - Estadísticas (eventos, partidos)
 - Opacidad reducida para pistas inactivas
-- **Botón "Ver Horario"** ✨ NUEVO
-- **Modal de horario integrado** ✨ NUEVO
+- Botón "Ver Horario"
+- Modal de horario integrado
 
 **Props:**
 
@@ -804,6 +809,8 @@ Modal interactivo para visualizar y gestionar el horario de una pista.
 
 **Características:**
 
+- Validación temprana de isReservable
+- Modal informativo si pista no es reservable
 - Visualización de slots de tiempo configurables
 - Navegación por días (anterior/siguiente)
 - Slots dinámicos basados en openTime, closeTime y slotDuration
@@ -813,6 +820,14 @@ Modal interactivo para visualizar y gestionar el horario de una pista.
 - Cancelar reservas propias
 - Integración completa con API
 - Responsive design
+
+**Validación de Reservabilidad:**
+
+- Si `court.isReservable = false`:
+  - Muestra modal informativo
+  - Mensaje: "Esta pista no acepta reservas públicas"
+  - No carga el componente de horario
+  - Botón "Cerrar" para salir
 
 **Slots de Tiempo:**
 
@@ -1482,11 +1497,18 @@ import { MatchCard } from "@/components/matches/MatchCard";
   - Modal con formulario
   - Validación con Zod
   - Toast de confirmación
+  - Checkbox "Abierta a reservas públicas" (default: true)
+  - Campos de horario condicionales según checkbox
+  - Validación: Si reservable, horarios son obligatorios
 
 - **Editar pista** (creador/admin)
 
   - Modal pre-cargado con datos
   - Actualización parcial de campos
+  - Cambiar estado de reservabilidad
+  - Si cambia de reservable a no reservable:
+    - Backend valida reservas futuras
+    - Error si hay reservas pendientes
 
 - **Activar/Desactivar** (creador/admin)
 
@@ -2538,7 +2560,7 @@ export interface MembersResponse {
 
 ### Tipos de Court (`src/types/court.ts`)
 
-Definiciones TypeScript para trabajar con pistas y reservas.
+Definiciones TypeScript para trabajar con pistas.
 
 **Interfaces principales:**
 
@@ -2549,9 +2571,10 @@ export interface Court {
   name: string;
   description?: string | null;
   isActive: boolean;
-  openTime: string;
-  closeTime: string;
-  slotDuration: number;
+  isReservable: boolean;
+  openTime: string; // Formato "HH:mm"
+  closeTime: string; // Formato "HH:mm"
+  slotDuration: number; // Duración en minutos
   clubId: string;
   club?: {
     id: string;
@@ -2569,9 +2592,10 @@ export interface CreateCourtData {
   name: string;
   description?: string;
   isActive?: boolean;
-  openTime?: string;
-  closeTime?: string;
-  slotDuration?: number;
+  isReservable?: boolean;
+  openTime?: string; // Opcional si isReservable = false
+  closeTime?: string; // Opcional si isReservable = false
+  slotDuration?: number; // Opcional si isReservable = false
 }
 
 // Datos para actualizar pista
@@ -2579,548 +2603,10 @@ export interface UpdateCourtData {
   name?: string;
   description?: string;
   isActive?: boolean;
+  isReservable?: boolean;
   openTime?: string;
   closeTime?: string;
   slotDuration?: number;
-}
-
-// Respuesta del listado de pistas
-export interface CourtsResponse {
-  club: {
-    id: string;
-    name: string;
-  };
-  courts: Court[];
-  pagination?: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
-// Reserva de pista
-export interface CourtReservation {
-  id: string;
-  startTime: string;
-  endTime: string;
-  courtId: string;
-  userId: string;
-  eventId?: string | null;
-  matchId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  event?: {
-    id: string;
-    title: string;
-  };
-  match?: {
-    id: string;
-    matchType: string;
-  };
-}
-
-// Slot de tiempo en el horario
-export interface TimeSlot {
-  time: string; // Formato "HH:mm"
-  isAvailable: boolean;
-  reservation?: CourtReservation;
-}
-
-// Respuesta del horario de pista
-export interface CourtScheduleResponse {
-  court: Court;
-  date: string;
-  slots: TimeSlot[];
-}
-
-// Datos para crear reserva
-export interface CreateReservationData {
-  courtId: string;
-  startTime: string; // ISO DateTime
-  endTime: string; // ISO DateTime
-}
-```
-
----
-
-### Tipos de Evento (`src/types/event.ts`)
-
-Definiciones TypeScript para trabajar con eventos.
-
-**Interfaces principales:**
-
-```typescript
-// Event completo con relaciones
-export interface Event extends PrismaEvent {
-  club: {
-    id: string;
-    name: string;
-    city: string;
-    logo?: string | null;
-    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
-  };
-  court?: {
-    id: string;
-    name: string;
-  } | null;
-  _count?: {
-    participants: number;
-    matches: number;
-  };
-}
-
-// Event con información del usuario participante
-export interface EventWithParticipation extends Event {
-  isParticipant: boolean;
-  isCheckedIn: boolean;
-  canCheckIn: boolean;
-}
-
-// Datos para crear evento
-export interface CreateEventData {
-  title: string;
-  description?: string;
-  type: EventType;
-  visibility: EventVisibility;
-  startDateTime: string;
-  endDateTime: string;
-  maxParticipants?: number;
-  price?: number;
-  clubId: string;
-  courtId?: string;
-}
-
-// Datos para actualizar evento
-export interface UpdateEventData {
-  title?: string;
-  description?: string;
-  type?: EventType;
-  visibility?: EventVisibility;
-  status?: EventStatus;
-  startDateTime?: string;
-  endDateTime?: string;
-  maxParticipants?: number;
-  price?: number;
-  courtId?: string;
-}
-
-// Participante de evento
-export interface EventParticipant {
-  id: string;
-  userId: string;
-  eventId: string;
-  registeredAt: string;
-  checkedIn: boolean;
-  checkedInAt: string | null;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string | null;
-    city?: string | null;
-    duprRating?: number | null;
-  };
-}
-
-// Respuesta del listado de eventos
-export interface EventsResponse {
-  events: Event[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
-// Respuesta de eventos cercanos
-export interface NearbyEventsResponse {
-  events: Event[];
-  city: string;
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
-// Respuesta del listado de participantes
-export interface ParticipantsResponse {
-  participants: EventParticipant[];
-  event: {
-    id: string;
-    title: string;
-    maxParticipants?: number | null;
-  };
-  stats: {
-    total: number;
-    checkedIn: number;
-    notCheckedIn: number;
-  };
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
-// Filtros para búsqueda de eventos
-export interface EventFilters {
-  page?: number;
-  limit?: number;
-  clubId?: string;
-  type?: EventType;
-  status?: EventStatus;
-  city?: string;
-  startDate?: string;
-  endDate?: string;
-  upcoming?: boolean;
-}
-
-// Filtros para eventos cercanos
-export interface NearbyEventFilters {
-  page?: number;
-  limit?: number;
-  type?: EventType;
-  daysAhead?: number;
-  openOnly?: boolean;
-}
-```
-
----
-
-### Tipos de Usuario (`src/types/user.ts`)
-
-Definiciones TypeScript para trabajar con usuarios.
-
-**Interfaces principales:**
-
-```typescript
-// Usuario completo
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string | null;
-  avatar?: string | null;
-  city?: string | null;
-  duprId?: string | null;
-  duprRating?: number | null;
-  role: "USER" | "SUPER_ADMIN";
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Datos para actualizar perfil
-export interface UpdateProfileData {
-  name?: string;
-  phone?: string;
-  city?: string;
-  avatar?: string;
-  duprId?: string;
-  currentPassword?: string;
-  newPassword?: string;
-}
-
-// Datos para cambiar contraseña
-export interface ChangePasswordData {
-  currentPassword: string;
-  newPassword: string;
-}
-```
-
-Definiciones TypeScript para trabajar con eventos.
-
-**Interfaces principales:**
-
-````typescript
-// Event completo con relaciones
-export interface Event extends PrismaEvent {
-  club: {
-    id: string;
-    name: string;
-    city: string;
-    logo?: string | null;
-    creatorId: string; // ✅ IMPORTANTE: Para verificar permisos
-  };
-  court?: {
-    id: string;
-    name: string;
-  } | null;
-  _count?: {
-    participants: number;
-    matches: number;
-  };
-}
-
-// Event con información del usuario participante
-export interface EventWithParticipation extends Event {
-  isParticipant: boolean;
-  isCheckedIn: boolean;
-  canCheckIn: boolean;
-}
-
-// Participante de evento
-export interface EventParticipant {
-  id: string;
-  userId: string;
-  eventId: string;
-  registeredAt: string;
-  checkedIn: boolean;
-  checkedInAt: string | null;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string | null;
-    city?: string | null;
-    duprRating?: number | null;
-  };
-}
-
-// Respuesta del listado de participantes
-export interface ParticipantsResponse {
-  participants: EventParticipant[];
-  event: {
-    id: string;
-    title: string;
-    maxParticipants?: number | null;
-  };
-  stats: {
-    total: number;
-    checkedIn: number;
-    notCheckedIn: number;
-  };
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
----
-
-## 🎨 Estilos y Diseño
-
-### Tailwind CSS v3
-
-**Versión:** 3.4.1
-
-**Archivo de configuración:** `tailwind.config.js`
-
-**Características:**
-
-- Utility-first CSS
-- Purge automático de clases no usadas
-- Personalización mediante variables CSS
-- Soporte para dark mode
-- `@apply`, `@layer` y directivas de Tailwind
-
-### Sistema de Colores (shadcn/ui)
-
-Definidos en `src/app/globals.css`:
-
-```css
-:root {
-  --background: 210 40% 96.1%; /* Fondo gris claro */
-  --foreground: 222.2 84% 4.9%; /* Texto oscuro */
-  --primary: 222.2 47.4% 11.2%; /* Color primario */
-  --secondary: 210 40% 96.1%; /* Color secundario */
-  --muted: 210 40% 96.1%; /* Color apagado */
-  --accent: 210 40% 96.1%; /* Color de acento */
-  --destructive: 0 84.2% 60.2%; /* Color de error */
-  --border: 214.3 31.8% 91.4%; /* Color de bordes */
-  --input: 214.3 31.8% 91.4%; /* Color de inputs */
-  --ring: 222.2 84% 4.9%; /* Color de focus ring */
-}
-````
-
-**Dark Mode:**
-
-- Variables CSS preparadas en `.dark` class
-- Cambio con clase `.dark` en `<html>`
-- Configurado con `darkMode: ["class"]` en tailwind.config.js
-
-## Tipos (`src/types/`)
-
-### Tipos de Club (`src/types/club.ts`)
-
-Definiciones TypeScript para trabajar con clubes.
-
-**Interfaces principales:**
-
-```typescript
-// Club completo con relaciones
-export interface Club {
-  id: string;
-  name: string;
-  description?: string | null;
-  address: string;
-  city: string;
-  phone?: string | null;
-  email?: string | null;
-  website?: string | null;
-  logo?: string | null;
-  stripeAccountId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  creatorId: string;
-  creator?: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  _count?: {
-    memberships: number;
-    events: number;
-    courts: number;
-  };
-}
-
-// Membresía de club
-export interface ClubMembership {
-  id: string;
-  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
-  joinedAt: string;
-  expiresAt?: string | null;
-  userId: string;
-  clubId: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone?: string | null;
-    city?: string | null;
-    avatar?: string | null;
-    duprRating?: number | null;
-  };
-}
-
-// Datos para crear club
-export interface CreateClubData {
-  name: string;
-  description?: string;
-  address: string;
-  city: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  logo?: string;
-}
-
-// Datos para actualizar club
-export interface UpdateClubData {
-  name?: string;
-  description?: string;
-  address?: string;
-  city?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  logo?: string;
-}
-
-// Datos para agregar miembro
-export interface AddMemberData {
-  userId: string;
-  status?: "ACTIVE" | "PENDING";
-  expiresAt?: string;
-}
-
-// Datos para actualizar membresía
-export interface UpdateMembershipData {
-  status: "ACTIVE" | "INACTIVE" | "PENDING" | "CANCELLED";
-  expiresAt?: string;
-}
-
-// Respuesta del listado de clubes
-export interface ClubsResponse {
-  clubs: Club[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-
-// Respuesta del listado de miembros
-export interface MembersResponse {
-  club: {
-    id: string;
-    name: string;
-  };
-  members: ClubMembership[];
-  pagination: {
-    page: number;
-    limit: number;
-    totalCount: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
-```
-
----
-
-### Tipos de Court (`src/types/court.ts`)
-
-Definiciones TypeScript para trabajar con pistas.
-
-**Interfaces principales:**
-
-```typescript
-// Pista completa con relaciones
-export interface Court {
-  id: string;
-  name: string;
-  description?: string | null;
-  isActive: boolean;
-  clubId: string;
-  club?: {
-    id: string;
-    name: string;
-  };
-  _count?: {
-    events: number;
-    matches: number;
-  };
-}
-
-// Datos para crear pista
-export interface CreateCourtData {
-  name: string;
-  description?: string;
-  isActive?: boolean;
-}
-
-// Datos para actualizar pista
-export interface UpdateCourtData {
-  name?: string;
-  description?: string;
-  isActive?: boolean;
 }
 
 // Respuesta del listado de pistas
@@ -4323,6 +3809,7 @@ Los eventos **solo se pueden crear desde la página del club** por los creadores
   - [x] Configurar duración de slots
   - [x] Ver horario de pista
   - [x] Gestionar reservas
+  - [x] Validación de cambio a no reservable
 - [ ] Dashboard del club
 
 ### Eventos (Usuario) ✅

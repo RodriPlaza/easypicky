@@ -4,28 +4,44 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { verifyToken } from "@/lib/auth-middleware";
 
-const updateCourtSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Court name is required")
-    .max(100, "Court name too long")
-    .optional(),
-  description: z.string().optional(),
-  isActive: z.boolean().optional(),
-  openTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
-    .optional(),
-  closeTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
-    .optional(),
-  slotDuration: z
-    .number()
-    .min(15, "Minimum 15 minutes")
-    .max(240, "Maximum 4 hours")
-    .optional(),
-});
+const updateCourtSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Court name is required")
+      .max(100, "Court name too long")
+      .optional(),
+    description: z.string().optional(),
+    isActive: z.boolean().optional(),
+    isReservable: z.boolean().optional(),
+    openTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+      .optional(),
+    closeTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+      .optional(),
+    slotDuration: z
+      .number()
+      .min(15, "Minimum 15 minutes")
+      .max(240, "Maximum 4 hours")
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // Si se está cambiando a reservable, validar que tenga los campos necesarios
+      if (data.isReservable === true) {
+        // Al menos openTime, closeTime y slotDuration deben estar presentes o ya existir
+        return true; // La validación se hará con los valores existentes
+      }
+      return true;
+    },
+    {
+      message: "Time fields must be provided when enabling reservability",
+      path: ["isReservable"],
+    }
+  );
 
 interface RouteParams {
   params: { id: string; courtId: string };
@@ -169,22 +185,58 @@ export async function PUT(request: NextRequest, context: RouteParams) {
       }
     }
 
-    // Validar horarios si se están actualizando
-    const finalOpenTime = validatedData.openTime || existingCourt.openTime;
-    const finalCloseTime = validatedData.closeTime || existingCourt.closeTime;
+    // Determinar el valor final de isReservable
+    const finalIsReservable =
+      validatedData.isReservable ?? existingCourt.isReservable;
 
-    const [openHour, openMin] = finalOpenTime.split(":").map(Number);
-    const [closeHour, closeMin] = finalCloseTime.split(":").map(Number);
-    const openMinutes = openHour * 60 + openMin;
-    const closeMinutes = closeHour * 60 + closeMin;
+    // Solo validar horarios si la pista es o será reservable
+    if (finalIsReservable) {
+      const finalOpenTime = validatedData.openTime || existingCourt.openTime;
+      const finalCloseTime = validatedData.closeTime || existingCourt.closeTime;
 
-    if (closeMinutes <= openMinutes) {
-      return NextResponse.json(
-        {
-          error: "Close time must be after open time",
+      const [openHour, openMin] = finalOpenTime.split(":").map(Number);
+      const [closeHour, closeMin] = finalCloseTime.split(":").map(Number);
+      const openMinutes = openHour * 60 + openMin;
+      const closeMinutes = closeHour * 60 + closeMin;
+
+      if (closeMinutes <= openMinutes) {
+        return NextResponse.json(
+          {
+            error: "Close time must be after open time",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Si se está cambiando de reservable a no reservable, verificar reservas futuras
+    if (
+      validatedData.isReservable === false &&
+      existingCourt.isReservable === true
+    ) {
+      const futureReservations = await prisma.courtReservation.count({
+        where: {
+          courtId: courtId,
+          startTime: {
+            gte: new Date(),
+          },
         },
-        { status: 400 }
-      );
+      });
+
+      if (futureReservations > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot disable reservability with existing future reservations",
+            details: {
+              futureReservations,
+              suggestion:
+                "Please cancel future reservations before disabling public reservations",
+            },
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Si se está desactivando la pista, verificar eventos futuros

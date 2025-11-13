@@ -200,6 +200,7 @@ model Court {
   name        String
   description String?
   isActive    Boolean @default(true)
+  isReservable Boolean @default(true)
   
   // Configuración de horarios
   openTime    String  @default("08:00")  // Hora de apertura (formato HH:mm)

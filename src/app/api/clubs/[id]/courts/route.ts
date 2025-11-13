@@ -5,30 +5,42 @@ import { z } from "zod";
 import { withAuth } from "@/lib/auth-middleware";
 import { AuthenticatedUser } from "@/lib/auth-middleware";
 
-const createCourtSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Court name is required")
-    .max(100, "Court name too long"),
-  description: z.string().optional(),
-  isActive: z.boolean().optional().default(true),
-  openTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
-    .optional()
-    .default("08:00"),
-  closeTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
-    .optional()
-    .default("23:00"),
-  slotDuration: z
-    .number()
-    .min(15, "Minimum 15 minutes")
-    .max(240, "Maximum 4 hours")
-    .optional()
-    .default(90),
-});
+const createCourtSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Court name is required")
+      .max(100, "Court name too long"),
+    description: z.string().optional(),
+    isActive: z.boolean().optional().default(true),
+    isReservable: z.boolean().optional().default(true),
+    openTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+      .optional(),
+    closeTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:mm)")
+      .optional(),
+    slotDuration: z
+      .number()
+      .min(15, "Minimum 15 minutes")
+      .max(240, "Maximum 4 hours")
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // Si es reservable, los campos de horario son obligatorios
+      if (data.isReservable) {
+        return !!(data.openTime && data.closeTime && data.slotDuration);
+      }
+      return true;
+    },
+    {
+      message: "Time fields are required when court is reservable",
+      path: ["openTime"],
+    }
+  );
 
 const listCourtsSchema = z.object({
   page: z
@@ -115,34 +127,65 @@ export const POST = withAuth(
         );
       }
 
-      // Validar que closeTime sea mayor que openTime
-      const [openHour, openMin] = validatedData.openTime.split(":").map(Number);
-      const [closeHour, closeMin] = validatedData.closeTime
-        .split(":")
-        .map(Number);
-      const openMinutes = openHour * 60 + openMin;
-      const closeMinutes = closeHour * 60 + closeMin;
+      // Solo validar horarios si isReservable = true
+      if (validatedData.isReservable) {
+        if (
+          !validatedData.openTime ||
+          !validatedData.closeTime ||
+          !validatedData.slotDuration
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "openTime, closeTime, and slotDuration are required when court is reservable",
+            },
+            { status: 400 }
+          );
+        }
 
-      if (closeMinutes <= openMinutes) {
-        return NextResponse.json(
-          {
-            error: "Close time must be after open time",
-          },
-          { status: 400 }
-        );
+        // Validar que closeTime sea mayor que openTime
+        const [openHour, openMin] = validatedData.openTime
+          .split(":")
+          .map(Number);
+        const [closeHour, closeMin] = validatedData.closeTime
+          .split(":")
+          .map(Number);
+        const openMinutes = openHour * 60 + openMin;
+        const closeMinutes = closeHour * 60 + closeMin;
+
+        if (closeMinutes <= openMinutes) {
+          return NextResponse.json(
+            {
+              error: "Close time must be after open time",
+            },
+            { status: 400 }
+          );
+        }
       }
 
-      // Crear la pista
+      // Crear la pista con valores condicionales
+      const courtData: any = {
+        name: validatedData.name,
+        description: validatedData.description,
+        isActive: validatedData.isActive,
+        isReservable: validatedData.isReservable,
+        clubId,
+      };
+
+      // Solo agregar campos de horario si isReservable = true
+      if (validatedData.isReservable) {
+        courtData.openTime = validatedData.openTime;
+        courtData.closeTime = validatedData.closeTime;
+        courtData.slotDuration = validatedData.slotDuration;
+      } else {
+        // Valores por defecto para pistas no reservables (necesarios por el schema)
+        courtData.openTime = "08:00";
+        courtData.closeTime = "23:00";
+        courtData.slotDuration = 90;
+      }
+
       const court = await prisma.court.create({
-        data: {
-          name: validatedData.name,
-          description: validatedData.description,
-          isActive: validatedData.isActive,
-          openTime: validatedData.openTime,
-          closeTime: validatedData.closeTime,
-          slotDuration: validatedData.slotDuration,
-          clubId,
-        },
+        data: courtData,
         include: {
           club: {
             select: {
@@ -170,7 +213,7 @@ export const POST = withAuth(
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: "Validation error", details: Error },
+          { error: "Validation error", details: error },
           { status: 400 }
         );
       }

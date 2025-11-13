@@ -13,24 +13,40 @@ import { useToast } from "@/components/ui/use-toast";
 import { api, ApiError } from "@/lib/api";
 import type { Court, UpdateCourtData } from "@/types/court";
 
-const courtSchema = z.object({
-  name: z
-    .string()
-    .min(1, "El nombre es requerido")
-    .max(100, "Máximo 100 caracteres"),
-  description: z.string().optional(),
-  isActive: z.boolean(),
-  openTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:mm"),
-  closeTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:mm"),
-  slotDuration: z
-    .number()
-    .min(15, "Mínimo 15 minutos")
-    .max(240, "Máximo 4 horas"),
-});
+// Schema condicional según isReservable
+const courtSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "El nombre es requerido")
+      .max(100, "Máximo 100 caracteres"),
+    description: z.string().optional(),
+    isActive: z.boolean(),
+    isReservable: z.boolean(),
+    openTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:mm")
+      .optional(),
+    closeTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:mm")
+      .optional(),
+    slotDuration: z.number().min(15).max(240).optional(),
+  })
+  .refine(
+    (data) => {
+      // Si es reservable, los campos de horario son obligatorios
+      if (data.isReservable) {
+        return !!(data.openTime && data.closeTime && data.slotDuration);
+      }
+      return true;
+    },
+    {
+      message:
+        "Los campos de horario son obligatorios cuando la pista es reservable",
+      path: ["openTime"],
+    }
+  );
 
 type CourtFormData = z.infer<typeof courtSchema>;
 
@@ -49,6 +65,7 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CourtFormData>({
     resolver: zodResolver(courtSchema),
@@ -56,29 +73,35 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
       name: court?.name || "",
       description: court?.description || "",
       isActive: court?.isActive ?? true,
+      isReservable: court?.isReservable ?? true,
       openTime: court?.openTime || "08:00",
       closeTime: court?.closeTime || "23:00",
       slotDuration: court?.slotDuration || 90,
     },
   });
 
+  const isReservable = watch("isReservable");
+
   const onSubmit = async (data: CourtFormData) => {
     setIsLoading(true);
 
     try {
-      const cleanData = {
-        ...data,
+      const cleanData: any = {
+        name: data.name,
         description: data.description || undefined,
-        openTime: data.openTime,
-        closeTime: data.closeTime,
-        slotDuration: data.slotDuration,
+        isActive: data.isActive,
+        isReservable: data.isReservable,
       };
 
+      // Solo incluir campos de horario si isReservable = true
+      if (data.isReservable) {
+        cleanData.openTime = data.openTime;
+        cleanData.closeTime = data.closeTime;
+        cleanData.slotDuration = data.slotDuration;
+      }
+
       if (mode === "create") {
-        const response = await api.post<{ court: Court }>(
-          `/clubs/${clubId}/courts`,
-          cleanData
-        );
+        await api.post<{ court: Court }>(`/clubs/${clubId}/courts`, cleanData);
 
         addToast({
           title: "¡Éxito!",
@@ -100,12 +123,17 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
           updateData.description = data.description;
         if (data.isActive !== court?.isActive)
           updateData.isActive = data.isActive;
-        if (data.openTime !== court?.openTime)
-          updateData.openTime = data.openTime;
-        if (data.closeTime !== court?.closeTime)
-          updateData.closeTime = data.closeTime;
-        if (data.slotDuration !== court?.slotDuration)
-          updateData.slotDuration = data.slotDuration;
+        if (data.isReservable !== court?.isReservable)
+          updateData.isReservable = data.isReservable;
+
+        if (data.isReservable) {
+          if (data.openTime !== court?.openTime)
+            updateData.openTime = data.openTime;
+          if (data.closeTime !== court?.closeTime)
+            updateData.closeTime = data.closeTime;
+          if (data.slotDuration !== court?.slotDuration)
+            updateData.slotDuration = data.slotDuration;
+        }
 
         await api.put(`/clubs/${clubId}/courts/${court?.id}`, updateData);
 
@@ -158,13 +186,14 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
           <p className="text-sm text-red-600">{errors.name.message}</p>
         )}
       </div>
+
       {/* Descripción */}
       <div className="space-y-2">
         <Label htmlFor="description">Descripción</Label>
         <Textarea
           id="description"
           placeholder="Características especiales, superficie, iluminación, etc."
-          rows={4}
+          rows={3}
           {...register("description")}
           disabled={isLoading}
         />
@@ -173,59 +202,6 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
         )}
         <p className="text-xs text-muted-foreground">
           Opcional - Información adicional sobre la pista
-        </p>
-      </div>
-
-      {/* Horario de apertura */}
-      <div className="space-y-2">
-        <Label htmlFor="openTime">
-          Hora de Apertura <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="openTime"
-          type="time"
-          {...register("openTime")}
-          disabled={isLoading}
-        />
-        {errors.openTime && (
-          <p className="text-sm text-red-600">{errors.openTime.message}</p>
-        )}
-      </div>
-      {/* Horario de cierre */}
-      <div className="space-y-2">
-        <Label htmlFor="closeTime">
-          Hora de Cierre <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="closeTime"
-          type="time"
-          {...register("closeTime")}
-          disabled={isLoading}
-        />
-        {errors.closeTime && (
-          <p className="text-sm text-red-600">{errors.closeTime.message}</p>
-        )}
-      </div>
-      {/* Duración de slots */}
-      <div className="space-y-2">
-        <Label htmlFor="slotDuration">
-          Duración de Reserva (minutos) <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="slotDuration"
-          type="number"
-          min="15"
-          max="240"
-          step="15"
-          {...register("slotDuration", { valueAsNumber: true })}
-          disabled={isLoading}
-        />
-        {errors.slotDuration && (
-          <p className="text-sm text-red-600">{errors.slotDuration.message}</p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Define cada cuánto tiempo se puede reservar esta pista (15-240
-          minutos)
         </p>
       </div>
 
@@ -239,17 +215,103 @@ export function CourtForm({ court, mode, clubId, onSuccess }: CourtFormProps) {
           className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
         />
         <Label htmlFor="isActive" className="font-normal cursor-pointer">
-          Pista activa (disponible para reservas y eventos)
+          Pista activa (disponible para eventos)
         </Label>
       </div>
+
+      {/* Reservable públicamente */}
+      <div className="flex items-center space-x-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <input
+          type="checkbox"
+          id="isReservable"
+          {...register("isReservable")}
+          disabled={isLoading}
+          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <Label htmlFor="isReservable" className="font-medium cursor-pointer">
+          Abierta a reservas públicas
+        </Label>
+      </div>
+      <p className="text-sm text-muted-foreground -mt-2">
+        {isReservable
+          ? "Los usuarios pueden reservar esta pista directamente. Configura los horarios y duración de slots."
+          : "Esta pista solo está disponible para eventos programados por el club."}
+      </p>
+
+      {/* Campos de horario - Solo si isReservable = true */}
+      {isReservable && (
+        <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+          <h3 className="font-semibold text-sm">
+            Configuración de Reservas Públicas
+          </h3>
+
+          {/* Horario de apertura */}
+          <div className="space-y-2">
+            <Label htmlFor="openTime">
+              Hora de Apertura <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="openTime"
+              type="time"
+              {...register("openTime")}
+              disabled={isLoading}
+            />
+            {errors.openTime && (
+              <p className="text-sm text-red-600">{errors.openTime.message}</p>
+            )}
+          </div>
+
+          {/* Horario de cierre */}
+          <div className="space-y-2">
+            <Label htmlFor="closeTime">
+              Hora de Cierre <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="closeTime"
+              type="time"
+              {...register("closeTime")}
+              disabled={isLoading}
+            />
+            {errors.closeTime && (
+              <p className="text-sm text-red-600">{errors.closeTime.message}</p>
+            )}
+          </div>
+
+          {/* Duración de slots */}
+          <div className="space-y-2">
+            <Label htmlFor="slotDuration">
+              Duración de Reserva (minutos){" "}
+              <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="slotDuration"
+              type="number"
+              min="15"
+              max="240"
+              step="15"
+              {...register("slotDuration", { valueAsNumber: true })}
+              disabled={isLoading}
+            />
+            {errors.slotDuration && (
+              <p className="text-sm text-red-600">
+                {errors.slotDuration.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Define cada cuánto tiempo se puede reservar esta pista (15-240
+              minutos)
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Botones */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 pt-4 border-t">
         <Button
           type="button"
           variant="outline"
           onClick={() => {
             if (onSuccess) {
-              // Si hay onSuccess, simplemente no hacer submit
               return;
             }
             router.back();
